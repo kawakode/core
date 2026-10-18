@@ -36,3 +36,41 @@ pref("extensions.update.enabled", true);
 // Pas de cache de pages entières en mémoire pour l'historique (bfcache).
 // À mesurer : gagne de la mémoire, rend précédent/suivant moins instantané.
 pref("browser.sessionhistory.max_total_viewers", 0);
+
+// Sécurité. Firefox règle ces valeurs dans browser/app/profile/firefox.js,
+// que Core n'embarque pas : sans elles, Gecko retombe sur ses propres valeurs
+// par défaut (sandbox de contenu au niveau 0 sous Linux, extensions dans le
+// processus principal).
+
+// Sandbox des processus de contenu, mêmes niveaux que Firefox. L'utilisateur
+// peut la désactiver dans les réglages (chrome://core/content/settings.xhtml),
+// ce qui pose une valeur utilisateur à 0. Gecko impose de toute façon un
+// minimum sous Windows (6) et macOS (1).
+#if defined(XP_WIN) && defined(MOZ_SANDBOX)
+pref("security.sandbox.content.level", 9);
+pref("security.sandbox.logging.enabled", false);
+#endif
+#if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
+pref("security.sandbox.content.level", 3);
+pref("security.sandbox.content.mac.disconnect-windowserver", true);
+pref("security.sandbox.logging.enabled", false);
+#endif
+#if defined(XP_LINUX) && defined(MOZ_SANDBOX)
+pref("security.sandbox.content.level", 6);
+pref("security.sandbox.content.write_path_whitelist", "");
+pref("security.sandbox.content.read_path_whitelist", "");
+pref("security.sandbox.content.syscall_whitelist", "");
+pref("security.sandbox.socket.process.level", 2);
+#endif
+
+// Réseau de WebRTC dans le processus socket : nécessaire au niveau 9 de la
+// sandbox Windows (security/sandbox/common/SandboxSettings.cpp).
+pref("media.peerconnection.mtransport_process", true);
+
+// Extensions dans leur propre processus, sans parcourir les dossiers
+// d'extensions du système au démarrage.
+pref("extensions.webextensions.remote", true);
+pref("extensions.startupScanScopes", 0);
+
+// Aucune fonction d'IA dans Core (décision du 18/10/2026).
+pref("browser.ml.enable", false);

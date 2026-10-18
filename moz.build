@@ -17,6 +17,6 @@ export("DIST_SUBDIR")
 DEFINES["APP_VERSION"] = CONFIG["MOZ_APP_VERSION"]
 
 # Déclaré ici pour hériter de DIST_SUBDIR, qui est remis à zéro dans app/.
-JS_PREFERENCE_FILES += [
+JS_PREFERENCE_PP_FILES += [
     "app/profile/core.js",
 ]

@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+
+<html xmlns="http://www.w3.org/1999/xhtml"
+      windowtype="core:settings"
+      width="480" height="260">
+<head>
+  <meta http-equiv="Content-Security-Policy"
+        content="script-src chrome: resource:; object-src 'none';" />
+  <title>Réglages — Core</title>
+  <link rel="stylesheet" href="chrome://global/skin/global.css" />
+  <link rel="stylesheet" href="chrome://core/content/settings.css" />
+  <script src="chrome://core/content/settings.js"></script>
+</head>
+<body>
+  <h1>Réglages</h1>
+  <section>
+    <label>
+      <input id="sandbox" type="checkbox" />
+      Isoler les pages web (sandbox)
+    </label>
+    <p class="help">
+      Une page piégée qui exploite une faille du moteur reste enfermée et
+      ne peut pas lire vos fichiers. Ne la désactivez que si un site ou un
+      périphérique ne fonctionne pas avec.
+    </p>
+    <p id="sandbox-platform" class="help" hidden="true"></p>
+    <p id="restart-needed" hidden="true">
+      Le changement s'applique au prochain démarrage.
+      <button id="restart">Redémarrer Core</button>
+    </p>
+  </section>
+</body>
+</html>
