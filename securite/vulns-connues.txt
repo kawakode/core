@@ -1,0 +1,83 @@
+# Vulnérabilités connues des dépendances de Gecko, une par ligne :
+#   <paquet> <identifiant>   # remarque
+# <paquet> est le nom du crate ou du paquet Python, ou le dossier du moz.yaml
+# pour une bibliothèque C/C++. N'importe quel alias (CVE, GHSA, RUSTSEC...)
+# convient. securite/vulnerabilites.py n'échoue que sur ce qui n'est pas ici.
+#
+# Une ligne n'efface pas la faille : elle dit qu'on l'a vue et qu'on attend sa
+# correction par Mozilla (montée d'ESR) ou qu'elle ne touche pas Core.
+# À chaque montée d'ESR, retirer les lignes devenues inutiles.
+
+# Gecko 153.5.0esr, crates compilées dans libxul : à corriger par Mozilla.
+bincode RUSTSEC-2025-0141  # Bincode is unmaintained
+paste RUSTSEC-2024-0436  # paste - no longer maintained
+proc-macro-error2 RUSTSEC-2026-0173  # proc-macro-error2 is unmaintained
+remove_dir_all GHSA-mc8h-8q98-g5hr  # Race Condition Enabling Link Following and Time-of-check Time-of-use (
+ringbuf RUSTSEC-2026-0293  # Double free / use-after-free in `Consumer::skip` and `Consumer::clear`
+serde_with GHSA-7gcf-g7xr-8hxj  # serde_with: KeyValueMap serialization panics on empty sequence or map
+smallbitvec CVE-2026-44983  # smallbitvec: Integer overflow in safe API leads to heap buffer overflo
+
+# Gecko 153.5.0esr, crates d'outils (geckodriver, crashreporter, nimbus-fml), absentes de Core.
+quick-xml RUSTSEC-2026-0194  # Quadratic run time when checking a start tag for duplicate attribute n
+quick-xml RUSTSEC-2026-0195  # Unbounded namespace-declaration allocation in `NsReader` enables memor
+unsafe-libyaml RUSTSEC-2024-0449  # unsafe-libyaml is unmaintained
+zip GHSA-4684-h2q9-2vcp  # ZipStreamReader::extract() and ZipArchive::extract() apply Unix permis
+zip GHSA-4v9h-p7m9-rh26  # zip: `ZipArchive::extract` creates symbolic links whose attacker-contr
+zip GHSA-vv5m-jxxh-4627  # Insecure Preservation of SUID/SGID Bits during ZIP Extraction Leading
+
+# Gecko 153.5.0esr, environnement Python de mach : sert au build, pas au navigateur.
+aiohttp CVE-2026-22815  # aiohttp allows unlimited trailer headers, leading to possible uncapped
+aiohttp CVE-2026-34513  # AIOHTTP Affected by Denial of Service (DoS) via Unbounded DNS Cache in
+aiohttp CVE-2026-34514  # AIOHTTP has CRLF injection through multipart part content type header
+aiohttp CVE-2026-34515  # AIOHTTP affected by UNC SSRF/NTLMv2 Credential Theft/Local File Read i
+aiohttp CVE-2026-34516  # AIOHTTP has a Multipart Header Size Bypass
+aiohttp CVE-2026-34517  # AIOHTTP has late size enforcement for non-file multipart fields causes
+aiohttp CVE-2026-34518  # AIOHTTP leaks Cookie and Proxy-Authorization headers on cross-origin r
+aiohttp CVE-2026-34519  # AIOHTTP has HTTP response splitting via \r in reason phrase
+aiohttp CVE-2026-34520  # AIOHTTP's C parser (llhttp) accepts null bytes and control characters
+aiohttp CVE-2026-34525  # AIOHTTP accepts duplicate Host headers
+aiohttp CVE-2026-34993  # AIOHTTP is Vulnerable to Deserialization of Untrusted Data
+aiohttp CVE-2026-47265  # AIOHTTP is vulnerable to cross-origin redirect with per-request cookie
+aiohttp CVE-2026-50269  # aiohttp: CRLF injection in multipart headers
+aiohttp CVE-2026-54273  # aiohttp: HTTP/1 Pipelined Requests Queue Without Limit
+aiohttp CVE-2026-54274  # aiohttp: Incomplete websocket frame payloads bypass memory limits
+aiohttp CVE-2026-54275  # aiohttp: TLS Server Hostname Override Is Ignored When Reusing HTTPS Co
+aiohttp CVE-2026-54276  # aiohttp: DigestAuthMiddleware Applies Credentials to Cross-Origin Redi
+aiohttp CVE-2026-54277  # aiohttp: C HTTP Parser Bypasses max_line_size for Fragmented Lines
+aiohttp CVE-2026-54278  # aiohttp: Unread Compressed Request Bodies Bypass client_max_size Durin
+aiohttp CVE-2026-54279  # aiohttp: Host-Only Cookies Become Domain Cookies After CookieJar Persi
+aiohttp CVE-2026-54280  # aiohttp: Payload Response Resources Are Not Closed After Mid-Body Disc
+aiohttp CVE-2026-59881  # AIOHTTP: WebSocket client accepts compressed frames without negotiated
+aiohttp CVE-2026-69243  # AIOHTTP: HTTP request smuggling via WebSocket upgrade
+aiohttp CVE-2026-69244  # AIOHTTP: Out-of-bounds heap read in C HTTP response parser error path
+cbor2 CVE-2026-26209  # cbor2 has a Denial of Service via Uncontrolled Recursion in cbor2.load
+diskcache CVE-2025-69872  # DiskCache has unsafe pickle deserialization
+ecdsa CVE-2024-23342  # Minerva timing attack on P-256 in python-ecdsa
+ecdsa CVE-2026-33936  # python-ecdsa: Denial of Service via improper DER length validation in
+idna CVE-2026-45409  # Internationalized Domain Names in Applications (IDNA): Specially craft
+mako CVE-2026-102991  # Mako: Path traversal via drive-letter URI on Windows in TemplateLookup
+mako CVE-2026-41205  # Mako: Path traversal via double-slash URI prefix in TemplateLookup
+mako CVE-2026-44307  # Mako vulnerable to path traversal via backslash URI on Windows in Temp
+multidict CVE-2026-104874  # Multidict: Reference leak in CIMultiDict/MultiDict items-view union an
+pip CVE-2025-8869  # pip's fallback tar extraction doesn't check symbolic links point to ex
+pip CVE-2026-13346  # pip would incorrectly handle doubly-encoded package URLs from indexes
+pip CVE-2026-1703  # pip Path Traversal vulnerability
+pip CVE-2026-3219  # pip has an interpretation conflict due to handling both concatenated t
+pip CVE-2026-6357  # pip Vulnerable to Inclusion of Functionality from Untrusted Control Sp
+pip CVE-2026-8643  # pip: Path traversal in console_scripts/gui_scripts entry point names
+pyasn1 CVE-2026-23490  # pyasn1 has a DoS vulnerability in decoder
+pyasn1 CVE-2026-30922  # Denial of Service in pyasn1 via Unbounded Recursion
+pyasn1 CVE-2026-59884  # pyasn1 BER/CER/DER decoder denial of service via unbounded long-form t
+pyasn1 CVE-2026-59885  # pyasn1: Quadratic complexity in OBJECT IDENTIFIER and RELATIVE-OID pro
+pyasn1 CVE-2026-59886  # pyasn1: Uncontrolled resource consumption when converting decoded REAL
+requests CVE-2026-25645  # Requests has Insecure Temp File Reuse in its extract_zipped_paths() ut
+setuptools BIT-setuptools-2025-47273  # setuptools has a path traversal vulnerability in PackageIndex.download
+setuptools BIT-setuptools-2026-59890  # setuptools: MANIFEST.in exclusion bypass in sdist via Unicode normaliz
+urllib3 CVE-2025-66418  # urllib3 allows an unbounded number of links in the decompression chain
+urllib3 CVE-2025-66471  # urllib3 streaming API improperly handles highly compressed data
+urllib3 CVE-2026-21441  # Decompression-bomb safeguards bypassed when following HTTP redirects (
+urllib3 CVE-2026-44431  # urllib3: Sensitive headers forwarded across origins in proxied low-lev
+urllib3 CVE-2026-97687  # urllib3: HTTPS proxy TLS configuration may be ignored or overridden
+urllib3 CVE-2026-97689  # urllib3: HTTPResponse.stream()/read_chunked() buffers an unbounded chu
+wheel CVE-2026-24049  # Wheel Affected by Arbitrary File Permission Modification via Path Trav
+
