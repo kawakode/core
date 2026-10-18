@@ -1,0 +1,92 @@
+# Surveille les dépendances de Core, c'est-à-dire Gecko et tout ce qu'il embarque :
+#  - Gecko : le tag GECKO_TAG pointe toujours sur GECKO_COMMIT (attaque
+#    supply chain sur la source) et aucune version ESR plus récente, donc
+#    porteuse de correctifs de sécurité, n'est sortie ;
+#  - crates Rust (Cargo.lock), paquets Python du build (uv.lock) et
+#    bibliothèques C/C++ copiées dans Gecko (moz.yaml) : CVE connues et
+#    paquets signalés comme malveillants, d'après https://osv.dev.
+# Tourne chaque jour, car une faille peut être publiée sans que le dépôt change.
+name: Sécurité des dépendances
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - GECKO_TAG
+      - GECKO_COMMIT
+      - patches/**
+      - scripts/bootstrap.sh
+      - securite/**
+      - .github/workflows/securite-dependances.yml
+  pull_request:
+    paths:
+      - GECKO_TAG
+      - GECKO_COMMIT
+      - patches/**
+      - scripts/bootstrap.sh
+      - securite/**
+      - .github/workflows/securite-dependances.yml
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gecko:
+    name: Gecko figé et à jour
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: securite/verifier-gecko.sh
+
+  vulnerabilites:
+    name: CVE et paquets malveillants
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    env:
+      OSV_SCANNER_VERSION: v2.6.0
+      OSV_SCANNER_SHA256: ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Seuls les fichiers de verrouillage et les moz.yaml sont extraits.
+      - name: Récupérer les manifestes de Gecko
+        run: |
+          gecko="$RUNNER_TEMP/gecko"
+          git clone --quiet --depth 1 --filter=blob:none --sparse \
+            --branch "$(cat GECKO_TAG)" https://github.com/mozilla-firefox/firefox.git "$gecko"
+          if [ "$(git -C "$gecko" rev-parse HEAD)" != "$(cat GECKO_COMMIT)" ]; then
+            echo "::error::$(cat GECKO_TAG) ne pointe plus sur GECKO_COMMIT"
+            exit 1
+          fi
+          git -C "$gecko" sparse-checkout set --no-cone \
+            /Cargo.lock /third_party/python/uv.lock '**/moz.yaml'
+
+      - name: Installer osv-scanner
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/osv-scanner" \
+            "https://github.com/google/osv-scanner/releases/download/$OSV_SCANNER_VERSION/osv-scanner_linux_amd64"
+          echo "$OSV_SCANNER_SHA256  $RUNNER_TEMP/osv-scanner" | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/osv-scanner"
+          python3 -c 'import yaml' || sudo apt-get install --yes python3-yaml
+
+      - name: Chercher les vulnérabilités
+        run: |
+          gecko="$RUNNER_TEMP/gecko"
+          # Code 1 : vulnérabilités trouvées, triées ensuite par vulnerabilites.py.
+          "$RUNNER_TEMP/osv-scanner" scan source --format json \
+            --lockfile "$gecko/Cargo.lock" --lockfile "$gecko/third_party/python/uv.lock" \
+            > "$RUNNER_TEMP/osv.json" || [ $? -eq 1 ]
+          securite/vulnerabilites.py --gecko "$gecko" --osv "$RUNNER_TEMP/osv.json"

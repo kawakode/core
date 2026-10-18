@@ -24,9 +24,9 @@ var gTabs = {
     title.className = "tab-title";
     title.textContent = "Nouvel onglet";
     let close = document.createElement("button");
-    close.className = "tab-close";
-    close.textContent = "×";
+    close.className = "tab-close icon-button";
     close.title = "Fermer l'onglet (Ctrl+W)";
+    close.setAttribute("aria-label", "Fermer l'onglet");
     tab.append(title, close);
 
     // browser est null quand l'onglet est déchargé ; unloaded garde alors
@@ -43,7 +43,7 @@ var gTabs = {
       this.close(entry);
     });
 
-    document.getElementById("tabstrip").append(tab);
+    document.getElementById("newtab").before(tab);
     this.list.push(entry);
     this.attachBrowser(entry, uri, { openWindowInfo, remoteType });
 
@@ -249,6 +249,7 @@ const gToolbar = {
       }
     });
     document.getElementById("newtab").addEventListener("click", () => gTabs.open(null));
+    document.getElementById("settings").addEventListener("click", openSettings);
     this.urlbar.addEventListener("keydown", event => {
       if (event.key == "Enter" && this.urlbar.value.trim()) {
         browser().fixupAndLoadURIString(this.urlbar.value.trim(), {
@@ -271,14 +272,29 @@ const gToolbar = {
     this.urlbar.value = spec == "about:blank" ? "" : spec;
     document.getElementById("back").disabled = !browser.canGoBack;
     document.getElementById("forward").disabled = !browser.canGoForward;
-    document.getElementById("reload").textContent = browser.webProgress
-      ?.isLoadingDocument
-      ? "×"
-      : "↻";
+    let reload = document.getElementById("reload");
+    let loading = !!browser.webProgress?.isLoadingDocument;
+    reload.toggleAttribute("loading", loading);
+    reload.title = loading ? "Arrêter" : "Recharger (Ctrl+R)";
+    reload.setAttribute("aria-label", loading ? "Arrêter" : "Recharger");
     let label = browser.contentTitle || spec;
     document.title = label ? `${label} — Core` : "Core";
   },
 };
+
+// Une seule fenêtre de réglages : on la ramène au premier plan si elle existe.
+function openSettings() {
+  let win = Services.wm.getMostRecentWindow("core:settings");
+  if (win) {
+    win.focus();
+    return;
+  }
+  window.openDialog(
+    "chrome://core/content/settings.xhtml",
+    "",
+    "chrome,dialog=no,resizable,centerscreen"
+  );
+}
 
 // Raccourcis clavier, en phase de capture pour passer avant la page.
 function onKeyDown(event) {
