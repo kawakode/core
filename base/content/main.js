@@ -42,9 +42,9 @@ const gTabs = {
     title.className = "tab-title";
     title.textContent = "Nouvel onglet";
     let close = document.createElement("button");
-    close.className = "tab-close";
-    close.textContent = "×";
+    close.className = "tab-close icon-button";
     close.title = "Fermer l'onglet (Ctrl+W)";
+    close.setAttribute("aria-label", "Fermer l'onglet");
     tab.append(title, close);
 
     let entry = { browser, tab, title };
@@ -59,7 +59,7 @@ const gTabs = {
       this.close(entry);
     });
 
-    document.getElementById("tabstrip").append(tab);
+    document.getElementById("newtab").before(tab);
     document.getElementById("browsers").append(browser);
     this.list.push(entry);
     this.watch(entry);
@@ -210,10 +210,11 @@ const gToolbar = {
     this.urlbar.value = spec == "about:blank" ? "" : spec;
     document.getElementById("back").disabled = !browser.canGoBack;
     document.getElementById("forward").disabled = !browser.canGoForward;
-    document.getElementById("reload").textContent = browser.webProgress
-      ?.isLoadingDocument
-      ? "×"
-      : "↻";
+    let reload = document.getElementById("reload");
+    let loading = !!browser.webProgress?.isLoadingDocument;
+    reload.toggleAttribute("loading", loading);
+    reload.title = loading ? "Arrêter" : "Recharger (Ctrl+R)";
+    reload.setAttribute("aria-label", loading ? "Arrêter" : "Recharger");
     let label = browser.contentTitle || spec;
     document.title = label ? `${label} — Core` : "Core";
   },

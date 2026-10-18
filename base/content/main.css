@@ -2,21 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-:root {
-  --bar-bg: #f0f0f4;
-  --bar-fg: #15141a;
-  --tab-active: #ffffff;
-  --border: #cfcfd8;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bar-bg: #2b2a33;
-    --bar-fg: #fbfbfe;
-    --tab-active: #42414d;
-    --border: #52525e;
-  }
-}
+/* Interface plate : pas d'ombre, de flou ni de dégradé, et seules
+ * les couleurs changent avec une transition (design.md, sections 2 et 7). */
 
 html, body {
   margin: 0;
@@ -27,59 +14,176 @@ html, body {
 body {
   display: flex;
   flex-direction: column;
-  background: var(--bar-bg);
-  color: var(--bar-fg);
+  background: var(--core-bg);
+  color: var(--core-text);
   font: menu;
 }
 
+:focus-visible {
+  outline: 2px solid var(--core-accent);
+  outline-offset: 1px;
+}
+
+/* Boutons : une icône SVG colorée par currentColor. */
+
+.icon-button {
+  appearance: none;
+  flex: none;
+  width: var(--core-button-size);
+  height: var(--core-button-size);
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--core-radius-small);
+  background: center no-repeat;
+  background-size: 16px;
+  color: inherit;
+  -moz-context-properties: stroke;
+  stroke: currentColor;
+  transition: background-color var(--core-transition);
+}
+
+.icon-button:hover {
+  background-color: var(--core-bg-hover);
+}
+
+.icon-button:hover:active {
+  background-color: var(--core-bg-active);
+}
+
+.icon-button:disabled {
+  opacity: 0.4;
+  background-color: transparent;
+}
+
+#back {
+  background-image: url("chrome://core/content/icons/back.svg");
+}
+
+#forward {
+  background-image: url("chrome://core/content/icons/forward.svg");
+}
+
+#reload {
+  background-image: url("chrome://core/content/icons/reload.svg");
+}
+
+#reload[loading],
+.tab-close {
+  background-image: url("chrome://core/content/icons/close.svg");
+}
+
+#newtab {
+  background-image: url("chrome://core/content/icons/plus.svg");
+}
+
+/* Barre d'outils */
+
 #toolbar {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
-}
-
-#toolbar button {
-  min-width: 28px;
-}
-
-#urlbar {
-  flex: 1;
-  min-width: 0;
-}
-
-#tabstrip {
-  display: flex;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--border);
-}
-
-.tab {
   display: flex;
   align-items: center;
   gap: 4px;
-  max-width: 220px;
-  padding: 4px 8px;
-  border-right: 1px solid var(--border);
+  padding: 4px 6px;
+  background: var(--core-bg-raised);
+  border-bottom: 1px solid var(--core-border);
+}
+
+#urlbar {
+  appearance: none;
+  flex: 1;
+  min-width: 0;
+  height: var(--core-field-height);
+  margin: 0 4px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--core-radius);
+  background: var(--core-bg);
+  color: var(--core-text);
+  font: inherit;
+}
+
+#urlbar::placeholder {
+  color: var(--core-text-muted);
+}
+
+#urlbar:focus {
+  border: 2px solid var(--core-accent);
+  padding: 0 9px;
+  outline: none;
+}
+
+/* Onglets */
+
+#tabstrip {
+  display: flex;
+  align-items: flex-end;
+  padding: 4px 6px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 220px;
+  min-width: 76px;
+  height: 28px;
+  padding: 0 4px 0 10px;
+  border-radius: var(--core-radius) var(--core-radius) 0 0;
+  color: var(--core-text-muted);
   cursor: default;
+  transition: background-color var(--core-transition);
+}
+
+/* Séparateur entre deux onglets, masqué à côté de l'onglet actif ou survolé. */
+.tab + .tab::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  height: 14px;
+  border-left: 1px solid var(--core-border);
+}
+
+.tab:hover::before,
+.tab:hover + .tab::before,
+.tab[selected]::before,
+.tab[selected] + .tab::before {
+  visibility: hidden;
+}
+
+.tab:hover {
+  background-color: var(--core-bg-hover);
 }
 
 .tab[selected] {
-  background: var(--tab-active);
+  background-color: var(--core-bg-raised);
+  color: var(--core-text);
 }
 
+/* Titre tronqué par un fondu fixe plutôt que par des points de suspension. */
 .tab-title {
   flex: 1;
   overflow: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  mask-image: linear-gradient(to left, transparent, black 24px);
 }
 
 .tab-close {
-  border: none;
-  background: none;
-  color: inherit;
-  padding: 0 2px;
+  --core-button-size: 20px;
 }
+
+#newtab {
+  margin: 0 0 2px 4px;
+}
+
+.tab:not([selected], :hover) > .tab-close {
+  visibility: hidden;
+}
+
+/* Contenu */
 
 #browsers {
   flex: 1;
