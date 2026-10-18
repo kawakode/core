@@ -1,0 +1,95 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+:root {
+  --bar-bg: #f0f0f4;
+  --bar-fg: #15141a;
+  --tab-active: #ffffff;
+  --border: #cfcfd8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bar-bg: #2b2a33;
+    --bar-fg: #fbfbfe;
+    --tab-active: #42414d;
+    --border: #52525e;
+  }
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bar-bg);
+  color: var(--bar-fg);
+  font: menu;
+}
+
+#toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+}
+
+#toolbar button {
+  min-width: 28px;
+}
+
+#urlbar {
+  flex: 1;
+  min-width: 0;
+}
+
+#tabstrip {
+  display: flex;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 220px;
+  padding: 4px 8px;
+  border-right: 1px solid var(--border);
+  cursor: default;
+}
+
+.tab[selected] {
+  background: var(--tab-active);
+}
+
+.tab-title {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tab-close {
+  border: none;
+  background: none;
+  color: inherit;
+  padding: 0 2px;
+}
+
+#browsers {
+  flex: 1;
+  min-height: 0;
+}
+
+#browsers > browser {
+  visibility: hidden;
+}
+
+#browsers > browser[selected] {
+  visibility: visible;
+}

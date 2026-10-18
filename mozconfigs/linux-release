@@ -1,0 +1,15 @@
+# Build de distribution Linux : LTO et symboles retirés.
+# PGO : ajouter --enable-profile-generate puis --enable-profile-use (deux passes).
+ac_add_options --enable-project=core
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-core-release
+
+ac_add_options --enable-release
+ac_add_options --disable-debug
+ac_add_options --enable-optimize
+ac_add_options --enable-lto
+ac_add_options --disable-tests
+ac_add_options --enable-strip
+ac_add_options --enable-install-strip
+ac_add_options --enable-packed-relative-relocs
+
+. "$topsrcdir/core/mozconfigs/common"

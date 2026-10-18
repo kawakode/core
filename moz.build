@@ -1,0 +1,22 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+EXTRA_COMPONENTS += [
+    "l10n-registry.manifest",
+]
+
+DIRS += [
+    "base",
+    "app",
+]
+
+DIST_SUBDIR = "core"
+export("DIST_SUBDIR")
+
+DEFINES["APP_VERSION"] = CONFIG["MOZ_APP_VERSION"]
+
+# Déclaré ici pour hériter de DIST_SUBDIR, qui est remis à zéro dans app/.
+JS_PREFERENCE_FILES += [
+    "app/profile/core.js",
+]

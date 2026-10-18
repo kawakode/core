@@ -1,0 +1,9 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+core.jar:
+% content core %content/core/
+  content/core/main.xhtml  (content/main.xhtml)
+  content/core/main.js     (content/main.js)
+  content/core/main.css    (content/main.css)
