@@ -11,7 +11,7 @@ DIRS += [
     "app",
 ]
 
-DIST_SUBDIR = "core"
+DIST_SUBDIR = "app"
 export("DIST_SUBDIR")
 
 DEFINES["APP_VERSION"] = CONFIG["MOZ_APP_VERSION"]

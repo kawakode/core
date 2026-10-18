@@ -18,6 +18,18 @@ else
   git -C "$GECKO_DIR" checkout --quiet "$GECKO_TAG"
 fi
 
+# Petits correctifs de Gecko pour qu'il reconnaisse le projet "core".
+# On les garde au strict minimum : chacun est à reporter à chaque montée d'ESR.
+for patch in "$CORE_DIR"/patches/*.patch; do
+  [ -e "$patch" ] || continue
+  if git -C "$GECKO_DIR" apply --check "$patch" 2>/dev/null; then
+    git -C "$GECKO_DIR" apply "$patch"
+  elif ! git -C "$GECKO_DIR" apply --reverse --check "$patch" 2>/dev/null; then
+    echo "Le correctif $patch ne s'applique pas sur $GECKO_TAG" >&2
+    exit 1
+  fi
+done
+
 # Gecko attend le projet dans son arbre (--enable-project=core), comme
 # Thunderbird avec comm/.
 ln -sfn "$CORE_DIR" "$GECKO_DIR/core"

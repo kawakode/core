@@ -102,7 +102,7 @@ __attribute__((constructor)) static void SSE2Check() {
 
 using namespace mozilla;
 
-#define kDesktopFolder "core"
+#define kDesktopFolder "app"
 
 #ifdef MOZ_BACKGROUNDTASKS
 static bool gIsBackgroundTask = false;

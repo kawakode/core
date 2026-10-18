@@ -15,7 +15,7 @@ SOURCES += [
     "nsCoreApp.cpp",
 ]
 
-# Ni le binaire ni ses fichiers ne vont dans dist/bin/core.
+# Ni le binaire ni ses fichiers ne vont dans dist/bin/app.
 DIST_SUBDIR = ""
 
 LOCAL_INCLUDES += [
