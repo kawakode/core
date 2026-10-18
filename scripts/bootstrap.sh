@@ -9,6 +9,7 @@ set -eu
 CORE_DIR=$(cd "$(dirname "$0")/.." && pwd)
 GECKO_DIR=${1:-"$CORE_DIR/../gecko"}
 GECKO_TAG=$(cat "$CORE_DIR/GECKO_TAG")
+GECKO_COMMIT=$(cat "$CORE_DIR/GECKO_COMMIT")
 GECKO_REPO=https://github.com/mozilla-firefox/firefox.git
 
 if [ ! -d "$GECKO_DIR/.git" ]; then
@@ -16,6 +17,12 @@ if [ ! -d "$GECKO_DIR/.git" ]; then
 else
   git -C "$GECKO_DIR" fetch --depth 1 origin "refs/tags/$GECKO_TAG:refs/tags/$GECKO_TAG"
   git -C "$GECKO_DIR" checkout --quiet "$GECKO_TAG"
+fi
+
+# Un tag peut être déplacé ; le commit attendu est figé dans GECKO_COMMIT.
+if [ "$(git -C "$GECKO_DIR" rev-parse HEAD)" != "$GECKO_COMMIT" ]; then
+  echo "$GECKO_TAG ne pointe pas sur $GECKO_COMMIT (GECKO_COMMIT) : source de Gecko non fiable" >&2
+  exit 1
 fi
 
 # Petits correctifs de Gecko pour qu'il reconnaisse le projet "core".

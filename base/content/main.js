@@ -188,6 +188,7 @@ const gToolbar = {
       }
     });
     document.getElementById("newtab").addEventListener("click", () => gTabs.open(null));
+    document.getElementById("settings").addEventListener("click", openSettings);
     this.urlbar.addEventListener("keydown", event => {
       if (event.key == "Enter" && this.urlbar.value.trim()) {
         browser().fixupAndLoadURIString(this.urlbar.value.trim(), {
@@ -219,6 +220,20 @@ const gToolbar = {
     document.title = label ? `${label} — Core` : "Core";
   },
 };
+
+// Une seule fenêtre de réglages : on la ramène au premier plan si elle existe.
+function openSettings() {
+  let win = Services.wm.getMostRecentWindow("core:settings");
+  if (win) {
+    win.focus();
+    return;
+  }
+  window.openDialog(
+    "chrome://core/content/settings.xhtml",
+    "",
+    "chrome,dialog=no,resizable,centerscreen"
+  );
+}
 
 // Raccourcis clavier, en phase de capture pour passer avant la page.
 function onKeyDown(event) {

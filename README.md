@@ -28,13 +28,29 @@ communes (composants retirés ou gardés) sont dans `mozconfigs/common`.
 | `app/` | Lanceur natif (`nsCoreApp.cpp`, dérivé de celui de Firefox) et préférences par défaut |
 | `base/content/` | Interface : fenêtre, barre d'adresse, onglets |
 | `branding/` | Nom et icônes |
-| `GECKO_TAG` | Version de Gecko utilisée (ESR) |
+| `GECKO_TAG`, `GECKO_COMMIT` | Version de Gecko utilisée (ESR) et son commit, vérifié par `bootstrap.sh` |
+| `securite/` | Contrôles de sécurité des dépendances (voir plus bas) |
 
 ## État
 
 Linux d'abord. Windows (launcher) et macOS (bundle `.app`) sont à compléter.
 Feuille de route et choix d'architecture : voir l'étude
 `architecture/coquille-gecko.md` du projet.
+
+## Sécurité des dépendances
+
+Deux workflows GitHub Actions surveillent ce dont Core dépend :
+
+- `securite-dependances.yml`, chaque jour : le tag de Gecko pointe toujours
+  sur `GECKO_COMMIT`, aucune version ESR plus récente (donc porteuse de
+  correctifs) n'est sortie, et aucune nouvelle CVE ni aucun paquet malveillant
+  n'apparaît dans les crates Rust, les paquets Python du build et les
+  bibliothèques C/C++ de Gecko (base [OSV](https://osv.dev)). Les failles déjà
+  vues sont listées dans `securite/vulns-connues.txt` ; le résumé du job donne
+  les lignes à y ajouter après examen.
+- `securite-workflows.yml` : audit des workflows par
+  [zizmor](https://docs.zizmor.sh). Les actions sont figées par commit et
+  Dependabot propose leurs mises à jour.
 
 ## Licence
 

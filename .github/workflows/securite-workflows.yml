@@ -1,0 +1,31 @@
+# Audite les workflows eux-mêmes avec zizmor : actions non figées par commit,
+# injections de code, droits trop larges, actions connues comme vulnérables.
+name: Sécurité des workflows
+
+on:
+  schedule:
+    - cron: "41 5 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/**
+  pull_request:
+    paths:
+      - .github/**
+
+permissions: {}
+
+jobs:
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: pipx run --spec zizmor==1.30.1 zizmor --format github .github
+        env:
+          GH_TOKEN: ${{ github.token }}

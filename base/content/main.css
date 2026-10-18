@@ -77,6 +77,10 @@ body {
   background-image: url("chrome://core/content/icons/plus.svg");
 }
 
+#settings {
+  background-image: url("chrome://core/content/icons/settings.svg");
+}
+
 /* Barre d'outils */
 
 #toolbar {
