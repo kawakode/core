@@ -1,0 +1,14 @@
+# Les actions sont figées par commit ; Dependabot propose les mises à jour.
+# Délai de 14 jours avant de proposer une version, pour ne pas adopter une
+# version compromise avant qu'elle ne soit repérée.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    groups:
+      actions:
+        patterns: ["*"]
