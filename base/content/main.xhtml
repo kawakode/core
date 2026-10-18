@@ -15,21 +15,28 @@
         content="script-src chrome: resource:; object-src 'none';" />
   <title>Core</title>
   <link rel="stylesheet" href="chrome://global/skin/global.css" />
+  <link rel="stylesheet" href="chrome://core/content/tokens.css" />
   <link rel="stylesheet" href="chrome://core/content/main.css" />
   <script src="chrome://global/content/customElements.js"></script>
   <script src="chrome://core/content/main.js"></script>
 </head>
 <body>
+  <div id="tabstrip" role="tablist">
+    <button id="newtab" class="icon-button" title="Nouvel onglet (Ctrl+T)"
+            aria-label="Nouvel onglet"></button>
+  </div>
   <div id="toolbar">
-    <button id="back" title="Précédent (Alt+←)" disabled="true">←</button>
-    <button id="forward" title="Suivant (Alt+→)" disabled="true">→</button>
-    <button id="reload" title="Recharger (Ctrl+R)">↻</button>
+    <button id="back" class="icon-button" title="Précédent (Alt+←)"
+            aria-label="Précédent" disabled="true"></button>
+    <button id="forward" class="icon-button" title="Suivant (Alt+→)"
+            aria-label="Suivant" disabled="true"></button>
+    <button id="reload" class="icon-button" title="Recharger (Ctrl+R)"
+            aria-label="Recharger"></button>
     <input id="urlbar" type="text" placeholder="Adresse ou recherche"
            spellcheck="false" autocomplete="off" />
-    <button id="newtab" title="Nouvel onglet (Ctrl+T)">+</button>
-    <button id="settings" title="Réglages">⚙</button>
+    <button id="settings" class="icon-button" title="Réglages"
+            aria-label="Réglages"></button>
   </div>
-  <div id="tabstrip" role="tablist"></div>
   <xul:stack id="browsers" flex="1"></xul:stack>
 </body>
 </html>
