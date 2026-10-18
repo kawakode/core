@@ -81,3 +81,102 @@ urllib3 CVE-2026-97687  # urllib3: HTTPS proxy TLS configuration may be ignored 
 urllib3 CVE-2026-97689  # urllib3: HTTPResponse.stream()/read_chunked() buffers an unbounded chu
 wheel CVE-2026-24049  # Wheel Affected by Arbitrary File Permission Modification via Path Trav
 
+# Gecko 153.5.0esr, bibliothèques C/C++ : correspondance par commit d'origine
+# sur osv.dev. Mozilla corrige souvent ses copies sans changer ce commit, ces
+# lignes sont donc à vérifier une par une avant d'en conclure quoi que ce soit.
+
+# wabt (wasm2c) : outil de build, et Core se construit sans bibliothèques
+# sandboxées en wasm.
+config/external/wasm2c_sandbox_compiler CVE-2025-15411
+config/external/wasm2c_sandbox_compiler CVE-2025-15412
+config/external/wasm2c_sandbox_compiler CVE-2025-6273
+config/external/wasm2c_sandbox_compiler CVE-2025-6274
+config/external/wasm2c_sandbox_compiler CVE-2025-6275
+config/external/wasm2c_sandbox_compiler CVE-2026-90648
+config/external/wasm2c_sandbox_compiler OSV-2022-1263
+config/external/wasm2c_sandbox_compiler OSV-2022-916
+config/external/wasm2c_sandbox_compiler OSV-2023-346
+config/external/wasm2c_sandbox_compiler OSV-2023-838
+config/external/wasm2c_sandbox_compiler OSV-2023-934
+config/external/wasm2c_sandbox_compiler OSV-2024-398
+
+# CUPS : Gecko n'en copie que les en-têtes (third_party/cups/include) ; les
+# failles visent le serveur et les filtres d'impression.
+third_party/cups CVE-2022-26691
+third_party/cups CVE-2023-32324
+third_party/cups CVE-2023-34241
+third_party/cups CVE-2023-4504
+third_party/cups CVE-2024-35235
+third_party/cups CVE-2025-58060
+third_party/cups CVE-2025-58364
+third_party/cups CVE-2025-58436
+third_party/cups CVE-2025-61915
+third_party/cups CVE-2026-107885
+third_party/cups CVE-2026-107888
+third_party/cups CVE-2026-107890
+third_party/cups CVE-2026-27447
+third_party/cups CVE-2026-34978
+third_party/cups CVE-2026-34979
+third_party/cups CVE-2026-34980
+third_party/cups CVE-2026-34990
+third_party/cups CVE-2026-39314
+third_party/cups CVE-2026-39316
+third_party/cups CVE-2026-41079
+third_party/cups CVE-2026-55453
+third_party/cups CVE-2026-55467
+third_party/cups CVE-2026-55480
+third_party/cups CVE-2026-61702
+third_party/cups CVE-2026-87875
+third_party/cups CVE-2026-87876
+
+# llama.cpp : moteur des fonctions d'IA locales de Firefox ; la plupart des
+# failles visent le serveur RPC et l'exemple Android, absents de Gecko.
+third_party/llama.cpp CVE-2026-27940
+third_party/llama.cpp CVE-2026-33298
+third_party/llama.cpp CVE-2026-34159
+third_party/llama.cpp CVE-2026-39909
+third_party/llama.cpp CVE-2026-43622
+third_party/llama.cpp CVE-2026-43627
+third_party/llama.cpp CVE-2026-43628
+third_party/llama.cpp CVE-2026-43629
+third_party/llama.cpp CVE-2026-43630
+third_party/llama.cpp CVE-2026-52132
+third_party/llama.cpp CVE-2026-70638
+third_party/llama.cpp CVE-2026-70639
+third_party/llama.cpp CVE-2026-70640
+third_party/llama.cpp CVE-2026-86317
+
+# Expat : à vérifier en priorité, le parseur XML est exposé au web.
+parser/expat CVE-2026-102633
+parser/expat CVE-2026-50219
+parser/expat CVE-2026-56131
+parser/expat CVE-2026-56132
+parser/expat CVE-2026-56403
+parser/expat CVE-2026-56404
+parser/expat CVE-2026-56405
+parser/expat CVE-2026-56406
+parser/expat CVE-2026-56407
+parser/expat CVE-2026-56408
+parser/expat CVE-2026-56409
+parser/expat CVE-2026-56410
+parser/expat CVE-2026-56411
+parser/expat CVE-2026-56412
+parser/expat CVE-2026-66046
+parser/expat CVE-2026-72522
+parser/expat CVE-2026-76641
+parser/expat CVE-2026-76957
+parser/expat CVE-2026-77214
+parser/expat CVE-2026-93990
+
+# Autres bibliothèques compilées dans le navigateur.
+extensions/spellcheck/hunspell OSV-2022-882
+gfx/cairo OSV-2023-298
+gfx/harfbuzz OSV-2026-962
+js/src/irregexp CVE-2026-85046
+js/src/irregexp V8-FRESHNESS  # rappel d'osv.dev que la copie de V8 a vieilli
+media/libjpeg OSV-2026-1068
+modules/freetype2 CVE-2026-50811
+modules/freetype2 CVE-2026-95512
+netwerk/sctp/src OSV-2021-343
+third_party/msgpack CVE-2026-72854
+third_party/pipewire CVE-2026-5674
