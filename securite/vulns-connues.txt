@@ -129,8 +129,9 @@ third_party/cups CVE-2026-61702
 third_party/cups CVE-2026-87875
 third_party/cups CVE-2026-87876
 
-# llama.cpp : moteur des fonctions d'IA locales de Firefox ; la plupart des
-# failles visent le serveur RPC et l'exemple Android, absents de Gecko.
+# llama.cpp : moteur des fonctions d'IA locales de Firefox, compilé dans libxul
+# par toolkit/components/ml sans option pour le désactiver. Core n'a pas de
+# fonctions d'IA : à retirer par un correctif de Gecko, et ces lignes avec.
 third_party/llama.cpp CVE-2026-27940
 third_party/llama.cpp CVE-2026-33298
 third_party/llama.cpp CVE-2026-34159
