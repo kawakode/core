@@ -4,7 +4,6 @@
 # Composants dont Core n'a pas l'usage.
 ac_add_options --disable-crashreporter
 ac_add_options --disable-updater
-ac_add_options --disable-webdriver
 ac_add_options --disable-parental-controls
 ac_add_options --disable-legacy-profile-creation
 ac_add_options --disable-system-extension-dirs
@@ -15,4 +14,6 @@ ac_add_options --disable-profiling
 ac_add_options --disable-real-time-tracing
 
 # Gardés volontairement : EME (DRM), WebRTC, accessibilité, sandbox, jemalloc.
+# WebDriver (remote/) aussi : les pages d'erreur de toolkit/ en dépendent
+# (NetErrorChild importe chrome://remote/content/shared/AppInfo.sys.mjs).
 ac_add_options --enable-eme=widevine

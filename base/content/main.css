@@ -93,3 +93,8 @@ body {
 #browsers > browser[selected] {
   visibility: visible;
 }
+
+.tab[unloaded] .tab-title {
+  font-style: italic;
+  opacity: 0.6;
+}
