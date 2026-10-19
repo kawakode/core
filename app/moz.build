@@ -45,7 +45,10 @@ if CONFIG["OS_ARCH"] == "WINNT":
         libpath_flag = "-LIBPATH:"
     else:
         libpath_flag = "-L"
-    WIN32_EXE_LDFLAGS += [libpath_flag + OBJDIR + "/winlauncher/freestanding"]
+    # winlauncher est construit sous browser/app/, pas sous core/app/.
+    WIN32_EXE_LDFLAGS += [
+        libpath_flag + TOPOBJDIR + "/browser/app/winlauncher/freestanding"
+    ]
     LINK_FLAGS["CETCOMPAT"] = []
 
 if CONFIG["OS_ARCH"] == "Darwin":

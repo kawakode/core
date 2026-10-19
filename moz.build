@@ -13,6 +13,9 @@ DIRS += [
     "app",
 ]
 
+if CONFIG["OS_ARCH"] == "WINNT":
+    DIRS += ["winlibs"]
+
 DIST_SUBDIR = "app"
 export("DIST_SUBDIR")
 

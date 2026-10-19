@@ -1,0 +1,13 @@
+# Build Windows x86_64 compilé depuis Linux (clang-cl + lld-link), comme la CI de Mozilla.
+# mach bootstrap récupère les toolchains (clang, rust, SDK Windows et en-têtes MSVC).
+# Utilisation : MOZCONFIG=$PWD/core/mozconfigs/win64-cross ./mach build && ./mach package
+ac_add_options --enable-project=core
+ac_add_options --target=x86_64-pc-windows-msvc
+ac_add_options --enable-bootstrap
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-core-win64
+
+ac_add_options --disable-debug
+ac_add_options --enable-optimize
+ac_add_options --disable-tests
+
+. "$topsrcdir/core/mozconfigs/common"

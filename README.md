@@ -20,6 +20,22 @@ MOZCONFIG=$PWD/core/mozconfigs/linux-dev ./mach run
 `mozconfigs/linux-release` active LTO et retire les symboles. Les options
 communes (composants retirés ou gardés) sont dans `mozconfigs/common`.
 
+## Construire (Windows, depuis Linux)
+
+Cross-compilation x86_64 avec clang-cl, comme la CI de Mozilla. Le configure
+télécharge lui-même le SDK Windows et les en-têtes MSVC (`--enable-bootstrap`).
+Il faut `msiextract` (paquet `msitools`) et la std Rust de la cible
+(`rustup target add x86_64-pc-windows-msvc`).
+
+```sh
+MOZCONFIG=$PWD/core/mozconfigs/win64-cross ./mach build
+```
+
+Il n'y a pas encore d'installeur ni de `mach package` : le zip portable se
+fait à partir de `obj-core-win64/dist/bin` (copié avec `cp -rL`), en y
+ajoutant `msvcp140.dll`, `vcruntime140.dll` et `vcruntime140_1.dll` de
+`~/.mozbuild/vs/VC/Redist/MSVC/*/x64/`.
+
 ## Organisation
 
 | Chemin | Rôle |
@@ -33,7 +49,7 @@ communes (composants retirés ou gardés) sont dans `mozconfigs/common`.
 
 ## État
 
-Linux d'abord. Windows (launcher) et macOS (bundle `.app`) sont à compléter.
+Linux d'abord. Windows se construit (zip portable, sans installeur) ; macOS (bundle `.app`) est à compléter.
 Feuille de route et choix d'architecture : voir l'étude
 `architecture/coquille-gecko.md` du projet.
 
