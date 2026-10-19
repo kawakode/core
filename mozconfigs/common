@@ -12,6 +12,8 @@ ac_add_options --disable-webspeech
 ac_add_options --disable-synth-speechd
 ac_add_options --disable-profiling
 ac_add_options --disable-real-time-tracing
+# Aucune IA locale : ni ONNX Runtime, ni llama.cpp (retiré par patches/0002).
+ac_add_options --without-onnx-runtime
 
 # Gardés volontairement : EME (DRM), WebRTC, accessibilité, sandbox, jemalloc.
 # WebDriver (remote/) aussi : les pages d'erreur de toolkit/ en dépendent

@@ -1,0 +1,40 @@
+diff --git a/config/external/moz.build b/config/external/moz.build
+index 9613533532..705864c9f4 100644
+--- a/config/external/moz.build
++++ b/config/external/moz.build
+@@ -11,7 +11,7 @@ DIRS += [
+     "sqlite",
+ ]
+ 
+-if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
++if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android" and CONFIG["MOZ_BUILD_APP"] != "core":
+     DIRS += ["mozinference"]
+ 
+ if CONFIG["MOZ_USING_WASM_SANDBOXING"]:
+diff --git a/dom/webidl/moz.build b/dom/webidl/moz.build
+index 35be78b5ef..c27275c9a3 100644
+--- a/dom/webidl/moz.build
++++ b/dom/webidl/moz.build
+@@ -1146,7 +1146,7 @@ WEBIDL_FILES = [
+ ]
+ 
+ # Native llama.cpp for ml engine.
+-if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
++if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android" and CONFIG["MOZ_BUILD_APP"] != "core":
+     WEBIDL_FILES += [
+         "LlamaRunner.webidl",
+     ]
+diff --git a/toolkit/components/ml/moz.build b/toolkit/components/ml/moz.build
+index 3fdbec1db5..90532ce43d 100644
+--- a/toolkit/components/ml/moz.build
++++ b/toolkit/components/ml/moz.build
+@@ -18,7 +18,8 @@ DIRS += [
+     "tests",
+ ]
+ 
+-if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
++# Core n'embarque aucune IA locale (llama.cpp).
++if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android" and CONFIG["MOZ_BUILD_APP"] != "core":
+     DIRS += ["backends/llama"]
+ 
+ XPCSHELL_TESTS_MANIFESTS += ["tests/xpcshell/xpcshell.toml"]
