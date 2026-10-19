@@ -77,8 +77,24 @@ body {
   background-image: url("chrome://core/content/icons/plus.svg");
 }
 
-#settings {
-  background-image: url("chrome://core/content/icons/settings.svg");
+#menu-button {
+  background-image: url("chrome://core/content/icons/menu.svg");
+}
+
+#window-minimize {
+  background-image: url("chrome://core/content/icons/minimize.svg");
+}
+
+#window-maximize {
+  background-image: url("chrome://core/content/icons/maximize.svg");
+}
+
+:root[sizemode="maximized"] #window-maximize {
+  background-image: url("chrome://core/content/icons/restore.svg");
+}
+
+#window-close {
+  background-image: url("chrome://core/content/icons/close.svg");
 }
 
 /* Barre d'outils */
@@ -87,7 +103,9 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 6px;
+  height: 38px;
+  box-sizing: border-box;
+  padding: 0 6px;
   background: var(--core-bg-raised);
   border-bottom: 1px solid var(--core-border);
 }
@@ -97,6 +115,7 @@ body {
   flex: 1;
   min-width: 0;
   height: var(--core-field-height);
+  box-sizing: border-box;
   margin: 0 4px;
   padding: 0 10px;
   border: 1px solid transparent;
@@ -116,12 +135,97 @@ body {
   outline: none;
 }
 
+/* Barre de titre : onglets à gauche, boutons de la fenêtre à droite.
+ * On déplace la fenêtre en la saisissant partout sauf sur un onglet ou
+ * un bouton. */
+
+#titlebar {
+  display: flex;
+  align-items: flex-end;
+  height: 34px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  -moz-window-dragging: drag;
+}
+
+#titlebar .tab,
+#titlebar .icon-button {
+  -moz-window-dragging: no-drag;
+}
+
+#titlebar-spacer {
+  flex: 1;
+  min-width: 24px;
+}
+
+#window-controls {
+  display: none;
+  align-self: center;
+  gap: 4px;
+}
+
+:root[customtitlebar] #window-controls {
+  display: flex;
+}
+
+/* Sous macOS, les feux tricolores du système restent à gauche. */
+@media (-moz-platform: macos) {
+  :root[customtitlebar] #window-controls {
+    display: none;
+  }
+
+  :root[customtitlebar] #titlebar {
+    padding-inline-start: 72px;
+  }
+}
+
+/* Sous Linux, mêmes boutons et même ordre que le bureau (GNOME n'affiche
+ * par exemple que Fermer, et certains bureaux les placent à gauche). */
+@media (-moz-platform: linux) {
+  #window-minimize {
+    order: env(-moz-gtk-csd-minimize-button-position);
+  }
+
+  #window-maximize {
+    order: env(-moz-gtk-csd-maximize-button-position);
+  }
+
+  #window-close {
+    order: env(-moz-gtk-csd-close-button-position);
+  }
+
+  @media not (-moz-gtk-csd-minimize-button) {
+    #window-minimize {
+      display: none;
+    }
+  }
+
+  @media not (-moz-gtk-csd-maximize-button) {
+    #window-maximize {
+      display: none;
+    }
+  }
+
+  @media not (-moz-gtk-csd-close-button) {
+    #window-close {
+      display: none;
+    }
+  }
+
+  @media (-moz-gtk-csd-reversed-placement) {
+    #window-controls {
+      order: -1;
+    }
+  }
+}
+
 /* Onglets */
 
 #tabstrip {
   display: flex;
   align-items: flex-end;
-  padding: 4px 6px 0;
+  flex: 0 1 auto;
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -185,6 +289,32 @@ body {
 
 .tab:not([selected], :hover) > .tab-close {
   visibility: hidden;
+}
+
+/* Menu ≡ : le menu de toolkit, en aplat, sans ombre. */
+
+#app-menu {
+  --panel-background-color: var(--core-bg-raised);
+  --panel-text-color: var(--core-text);
+  --panel-border-color: var(--core-border);
+  --panel-border-radius: var(--core-radius);
+  --panel-box-shadow: none;
+  --panel-box-shadow-margin: 0px;
+  --menuitem-border-radius: var(--core-radius-small);
+  min-width: 200px;
+}
+
+#app-menu > menuitem {
+  min-height: 28px;
+}
+
+#app-menu > menuitem[_moz-menuactive] {
+  background-color: var(--core-bg-hover);
+  color: var(--core-text);
+}
+
+#app-menu > menuitem > .menu-accel {
+  color: var(--core-text-muted);
 }
 
 /* Contenu */
