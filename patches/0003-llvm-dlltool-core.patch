@@ -1,0 +1,12 @@
+diff --git a/toolkit/moz.configure b/toolkit/moz.configure
+--- a/toolkit/moz.configure
++++ b/toolkit/moz.configure
+@@ -2136,7 +2136,7 @@
+ 
+ @depends(build_project, target, "--enable-compile-environment")
+ def check_for_llvm_dlltool(build_project, target, compile_environment):
+-    if build_project != "browser":
++    if build_project not in ("browser", "core"):
+         return
+ 
+     if target.os != "WINNT":
