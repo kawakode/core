@@ -4,8 +4,8 @@
 
 "use strict";
 
-// Fenêtre de réglages. Pour l'instant, un seul : la sandbox des processus
-// de contenu.
+// Fenêtre de réglages : sandbox des processus de contenu et réponse par
+// défaut aux certificats invalides.
 
 const SANDBOX_PREF = "security.sandbox.content.level";
 
@@ -53,10 +53,30 @@ const gSandbox = {
   },
 };
 
+// Réponse par défaut à un certificat invalide (CoreCertErrorChild).
+const gCertError = {
+  PREF: "core.certerrors.default",
+
+  init() {
+    let value = Services.prefs.getStringPref(this.PREF, "ask");
+    for (let radio of document.querySelectorAll("input[name=certerror]")) {
+      radio.checked = radio.value == value;
+      radio.addEventListener("change", () => {
+        if (radio.value == "ask") {
+          Services.prefs.clearUserPref(this.PREF);
+        } else {
+          Services.prefs.setStringPref(this.PREF, radio.value);
+        }
+      });
+    }
+  },
+};
+
 window.addEventListener(
   "load",
   () => {
     gSandbox.init();
+    gCertError.init();
     document.getElementById("restart").addEventListener("click", () => {
       Services.startup.quit(
         Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart

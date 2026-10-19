@@ -91,3 +91,7 @@ pref("security.certerrors.mitm.priming.enabled", true);
 pref("security.certerrors.mitm.priming.endpoint", "https://mitmdetection.services.mozilla.com/");
 pref("security.certerrors.mitm.auto_enable_enterprise_roots", true);
 pref("browser.ipProtection.userEnabled", false);
+// Réponse par défaut à un certificat invalide : "ask" (afficher la page),
+// "accept" (continuer sans la page) ou "refuse" (page sans bouton
+// Continuer). Appliquée par modules/CoreCertErrorChild.sys.mjs.
+pref("core.certerrors.default", "ask");

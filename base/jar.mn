@@ -7,6 +7,7 @@ core.jar:
   content/core/main.xhtml  (content/main.xhtml)
   content/core/main.js     (content/main.js)
   content/core/main.css    (content/main.css)
+  content/core/certerror.css  (content/certerror.css)
   content/core/tokens.css  (content/tokens.css)
   content/core/icons/      (content/icons/*.svg)
   content/core/settings.xhtml  (content/settings.xhtml)

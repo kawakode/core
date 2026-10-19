@@ -1,0 +1,21 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* Ajoutée par CoreCertErrorChild à la page de certificat invalide de
+ * toolkit : le bouton Continuer prend la place d'« Avancé » et les
+ * détails sont affichés d'office. */
+
+body.certerror #advancedButton,
+body.certerror #advancedPanelButtonContainer {
+  display: none !important;
+}
+
+body.certerror #badCertAdvancedPanel {
+  display: block !important;
+}
+
+/* « Accepter » par défaut : la page n'est jamais montrée. */
+:root[core-accepting] body {
+  visibility: hidden;
+}
