@@ -7,13 +7,53 @@
 // Fenêtre principale de Core : barre d'outils, onglets et un <browser>
 // distant (processus de contenu séparé et sandboxé) par onglet.
 
-const HOMEPAGE_PREF = "core.homepage";
+// Déchargement des onglets en arrière-plan : après ce délai sans être
+// affichés, ou dès que le système manque de mémoire. 0 désactive le délai.
+const UNLOAD_DELAY_PREF = "core.tabs.unloadAfterMinutes";
 
-const gTabs = {
+// « var » pour être visible depuis les modules (window.gTabs).
+var gTabs = {
   list: [],
   selected: null,
 
   open(uri, { select = true, openWindowInfo = null, remoteType = null } = {}) {
+    let tab = document.createElement("div");
+    tab.className = "tab";
+    tab.setAttribute("role", "tab");
+    let title = document.createElement("span");
+    title.className = "tab-title";
+    title.textContent = "Nouvel onglet";
+    let close = document.createElement("button");
+    close.className = "tab-close icon-button";
+    close.title = "Fermer l'onglet (Ctrl+W)";
+    close.setAttribute("aria-label", "Fermer l'onglet");
+    tab.append(title, close);
+
+    // browser est null quand l'onglet est déchargé ; unloaded garde alors
+    // de quoi le recharger.
+    let entry = { browser: null, tab, title, lastSeen: Date.now(), unloaded: null };
+    tab.addEventListener("click", () => this.select(entry));
+    tab.addEventListener("auxclick", event => {
+      if (event.button == 1) {
+        this.close(entry);
+      }
+    });
+    close.addEventListener("click", event => {
+      event.stopPropagation();
+      this.close(entry);
+    });
+
+    document.getElementById("newtab").before(tab);
+    this.list.push(entry);
+    this.attachBrowser(entry, uri, { openWindowInfo, remoteType });
+
+    if (select || !this.selected) {
+      this.select(entry);
+    }
+    return entry;
+  },
+
+  attachBrowser(entry, uri, { openWindowInfo = null, remoteType = null } = {}) {
     let browser = document.createXULElement("browser");
     browser.permanentKey = new (Cu.getGlobalForObject(Services).Object)();
     for (let [name, value] of Object.entries({
@@ -34,45 +74,14 @@ const gTabs = {
       "remoteType",
       remoteType ?? (uri ? this.remoteTypeFor(uri) : E10SUtils.WEB_REMOTE_TYPE)
     );
-
-    let tab = document.createElement("div");
-    tab.className = "tab";
-    tab.setAttribute("role", "tab");
-    let title = document.createElement("span");
-    title.className = "tab-title";
-    title.textContent = "Nouvel onglet";
-    let close = document.createElement("button");
-    close.className = "tab-close icon-button";
-    close.title = "Fermer l'onglet (Ctrl+W)";
-    close.setAttribute("aria-label", "Fermer l'onglet");
-    tab.append(title, close);
-
-    let entry = { browser, tab, title };
-    tab.addEventListener("click", () => this.select(entry));
-    tab.addEventListener("auxclick", event => {
-      if (event.button == 1) {
-        this.close(entry);
-      }
-    });
-    close.addEventListener("click", event => {
-      event.stopPropagation();
-      this.close(entry);
-    });
-
-    document.getElementById("newtab").before(tab);
+    entry.browser = browser;
     document.getElementById("browsers").append(browser);
-    this.list.push(entry);
     this.watch(entry);
-
     if (uri) {
       browser.fixupAndLoadURIString(uri, {
         triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
       });
     }
-    if (select || !this.selected) {
-      this.select(entry);
-    }
-    return entry;
   },
 
   remoteTypeFor(uri) {
@@ -93,11 +102,18 @@ const gTabs = {
       return;
     }
     if (this.selected) {
+      this.selected.lastSeen = Date.now();
       this.selected.tab.removeAttribute("selected");
       this.selected.browser.removeAttribute("selected");
       this.selected.browser.docShellIsActive = false;
     }
     this.selected = entry;
+    if (entry.unloaded) {
+      let { uri } = entry.unloaded;
+      entry.unloaded = null;
+      entry.tab.removeAttribute("unloaded");
+      this.attachBrowser(entry, uri);
+    }
     entry.tab.setAttribute("selected", "true");
     entry.browser.setAttribute("selected", "true");
     entry.browser.docShellIsActive = true;
@@ -124,7 +140,46 @@ const gTabs = {
       this.select(this.list[Math.min(index, this.list.length - 1)]);
     }
     entry.tab.remove();
+    entry.browser?.remove();
+  },
+
+  // Libère le processus et la mémoire d'un onglet en arrière-plan. Il est
+  // rechargé depuis son adresse quand on le réaffiche (l'historique de
+  // l'onglet et les formulaires non envoyés sont perdus).
+  unload(entry) {
+    if (entry == this.selected || entry.unloaded || entry.playing) {
+      return false;
+    }
+    let uri = entry.browser.currentURI?.spec;
+    if (!uri || uri == "about:blank") {
+      return false;
+    }
+    entry.unloaded = { uri };
+    entry.tab.setAttribute("unloaded", "true");
     entry.browser.remove();
+    entry.browser = null;
+    return true;
+  },
+
+  unloadIdle() {
+    let minutes = Services.prefs.getIntPref(UNLOAD_DELAY_PREF, 0);
+    if (minutes <= 0) {
+      return;
+    }
+    let limit = Date.now() - minutes * 60 * 1000;
+    for (let entry of this.list) {
+      if (entry.lastSeen < limit) {
+        this.unload(entry);
+      }
+    }
+  },
+
+  // Sur alerte mémoire du système, tout ce qui n'est pas affiché est
+  // déchargé, du plus anciennement vu au plus récent.
+  unloadAll() {
+    [...this.list]
+      .sort((a, b) => a.lastSeen - b.lastSeen)
+      .forEach(entry => this.unload(entry));
   },
 
   watch(entry) {
@@ -138,8 +193,17 @@ const gTabs = {
       }
     });
 
-    // Le processus de contenu peut changer (isolation par site) : il faut
-    // alors réattacher l'écouteur de progression.
+    // Un onglet qui joue du son n'est jamais déchargé.
+    browser.addEventListener("DOMAudioPlaybackStarted", () => {
+      entry.playing = true;
+    });
+    browser.addEventListener("DOMAudioPlaybackStopped", () => {
+      entry.playing = false;
+    });
+
+    // L'écouteur est porté par le BrowsingContext de l'onglet : il survit aux
+    // changements de processus (isolation par site), pas besoin de le
+    // réattacher. Le réattacher échoue et interrompt le chargement.
     let listener = {
       QueryInterface: ChromeUtils.generateQI([
         "nsIWebProgressListener",
@@ -161,13 +225,10 @@ const gTabs = {
       },
     };
     entry.progressListener = listener;
-    let attach = () =>
-      browser.addProgressListener(
-        listener,
-        Ci.nsIWebProgress.NOTIFY_LOCATION | Ci.nsIWebProgress.NOTIFY_STATE_NETWORK
-      );
-    attach();
-    browser.addEventListener("DidChangeBrowserRemoteness", attach);
+    browser.addProgressListener(
+      listener,
+      Ci.nsIWebProgress.NOTIFY_LOCATION | Ci.nsIWebProgress.NOTIFY_STATE_NETWORK
+    );
   },
 };
 
@@ -246,6 +307,7 @@ function onKeyDown(event) {
     gTabs.close(gTabs.selected);
   } else if ((accel && event.key == "l") || event.key == "F6") {
     gToolbar.urlbar.focus();
+    gToolbar.urlbar.select();
   } else if ((accel && event.key == "r") || event.key == "F5") {
     browser.reload();
   } else if (event.altKey && event.key == "ArrowLeft") {
@@ -339,9 +401,19 @@ window.addEventListener(
 
     let urls = urlsFromCommandLine();
     if (!urls.length) {
-      urls = [Services.prefs.getStringPref(HOMEPAGE_PREF, "about:blank")];
+      let { HomePage } = ChromeUtils.importESModule(
+        "resource:///modules/HomePage.sys.mjs"
+      );
+      urls = [HomePage.get()];
     }
     urls.forEach((url, i) => gTabs.open(url, { select: i == 0 }));
+
+    setInterval(() => gTabs.unloadIdle(), 60 * 1000);
+    let onMemoryPressure = () => gTabs.unloadAll();
+    Services.obs.addObserver(onMemoryPressure, "memory-pressure");
+    window.addEventListener("unload", () =>
+      Services.obs.removeObserver(onMemoryPressure, "memory-pressure")
+    );
   },
   { once: true }
 );

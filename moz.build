@@ -8,6 +8,8 @@ EXTRA_COMPONENTS += [
 
 DIRS += [
     "base",
+    "components",
+    "modules",
     "app",
 ]
 

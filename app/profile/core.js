@@ -74,3 +74,20 @@ pref("extensions.startupScanScopes", 0);
 
 // Aucune fonction d'IA dans Core (décision du 18/10/2026).
 pref("browser.ml.enable", false);
+
+// Onglets en arrière-plan déchargés après 30 minutes sans être affichés,
+// et tous dès que le système signale un manque de mémoire.
+pref("core.tabs.unloadAfterMinutes", 30);
+
+// Liens « En savoir plus » des pages d'erreur.
+pref("app.support.baseURL", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/");
+
+// Pages d'erreur de certificat (valeurs de Firefox, lues par
+// toolkit/content/aboutNetError.mjs et net-error-card.mjs).
+pref("security.certerrors.permanentOverride", true);
+// Ancienne présentation : la nouvelle utilise une illustration de Firefox.
+pref("security.certerrors.felt-privacy-v1", false);
+pref("security.certerrors.mitm.priming.enabled", true);
+pref("security.certerrors.mitm.priming.endpoint", "https://mitmdetection.services.mozilla.com/");
+pref("security.certerrors.mitm.auto_enable_enterprise_roots", true);
+pref("browser.ipProtection.userEnabled", false);
