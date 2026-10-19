@@ -4,5 +4,6 @@
 
 EXTRA_JS_MODULES += [
     "BrowserWindowTracker.sys.mjs",
+    "CoreCertErrorChild.sys.mjs",
     "HomePage.sys.mjs",
 ]

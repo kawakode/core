@@ -5,7 +5,7 @@
 
 <html xmlns="http://www.w3.org/1999/xhtml"
       windowtype="core:settings"
-      width="480" height="260">
+      width="480" height="360">
 <head>
   <meta http-equiv="Content-Security-Policy"
         content="script-src chrome: resource:; object-src 'none';" />
@@ -30,6 +30,18 @@
     <p id="restart-needed" hidden="true">
       Le changement s'applique au prochain démarrage.
       <button id="restart">Redémarrer Core</button>
+    </p>
+  </section>
+  <section>
+    <h2>Certificat invalide</h2>
+    <p class="help">Quand un site présente un certificat qui ne peut pas être vérifié :</p>
+    <label><input type="radio" name="certerror" value="ask" /> Demander</label>
+    <label><input type="radio" name="certerror" value="accept" /> Continuer sans demander</label>
+    <label><input type="radio" name="certerror" value="refuse" /> Refuser</label>
+    <p class="help">
+      « Continuer sans demander » vous expose à une interception de vos
+      échanges sans que vous le sachiez. Les sites qui exigent HTTPS (HSTS)
+      restent toujours bloqués.
     </p>
   </section>
 </body>

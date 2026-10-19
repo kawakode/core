@@ -20,5 +20,16 @@ CoreGlue.prototype = {
     ChromeUtils.importESModule(
       "resource://gre/modules/ActorManagerParent.sys.mjs"
     );
+    // Présentation et réponse par défaut de la page de certificat invalide.
+    ChromeUtils.registerWindowActor("CoreCertError", {
+      child: {
+        esModuleURI: "resource:///modules/CoreCertErrorChild.sys.mjs",
+        events: {
+          DOMDocElementInserted: {},
+          AboutNetErrorLoad: { wantUntrusted: true },
+        },
+      },
+      matches: ["about:certerror?*"],
+    });
   },
 };
