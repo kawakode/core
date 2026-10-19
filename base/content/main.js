@@ -43,7 +43,7 @@ var gTabs = {
       this.close(entry);
     });
 
-    document.getElementById("newtab").before(tab);
+    document.getElementById("tabstrip").append(tab);
     this.list.push(entry);
     this.attachBrowser(entry, uri, { openWindowInfo, remoteType });
 
@@ -115,6 +115,7 @@ var gTabs = {
       this.attachBrowser(entry, uri);
     }
     entry.tab.setAttribute("selected", "true");
+    entry.tab.scrollIntoView({ block: "nearest", inline: "nearest" });
     entry.browser.setAttribute("selected", "true");
     entry.browser.docShellIsActive = true;
     gToolbar.update();
@@ -249,7 +250,7 @@ const gToolbar = {
       }
     });
     document.getElementById("newtab").addEventListener("click", () => gTabs.open(null));
-    document.getElementById("settings").addEventListener("click", openSettings);
+    this.initMenu();
     this.urlbar.addEventListener("keydown", event => {
       if (event.key == "Enter" && this.urlbar.value.trim()) {
         browser().fixupAndLoadURIString(this.urlbar.value.trim(), {
@@ -263,6 +264,34 @@ const gToolbar = {
     this.urlbar.addEventListener("focus", () => this.urlbar.select());
   },
 
+  // Menu ≡ : menu de toolkit, stylé par main.css.
+  initMenu() {
+    let menu = document.getElementById("app-menu");
+    let button = document.getElementById("menu-button");
+    button.addEventListener("mousedown", event => {
+      if (event.button == 0) {
+        menu.openPopup(button, "after_end");
+      }
+    });
+    button.addEventListener("keydown", event => {
+      if (event.key == "Enter" || event.key == " ") {
+        event.preventDefault();
+        menu.openPopup(button, "after_end");
+      }
+    });
+    if (AppConstants.platform == "macosx") {
+      for (let item of menu.querySelectorAll("[acceltext]")) {
+        item.setAttribute("acceltext", item.getAttribute("acceltext").replace("Ctrl+", "⌘"));
+      }
+    }
+    let commands = {
+      "menu-newtab": () => gTabs.open(null),
+      "menu-settings": openSettings,
+      "menu-quit": quit,
+    };
+    menu.addEventListener("command", event => commands[event.target.id]?.());
+  },
+
   update() {
     let browser = gTabs.selected?.browser;
     if (!browser) {
@@ -271,7 +300,7 @@ const gToolbar = {
     let spec = browser.currentURI?.spec ?? "";
     this.urlbar.value = spec == "about:blank" ? "" : spec;
     document.getElementById("back").disabled = !browser.canGoBack;
-    document.getElementById("forward").disabled = !browser.canGoForward;
+    document.getElementById("forward").hidden = !browser.canGoForward;
     let reload = document.getElementById("reload");
     let loading = !!browser.webProgress?.isLoadingDocument;
     reload.toggleAttribute("loading", loading);
@@ -281,6 +310,55 @@ const gToolbar = {
     document.title = label ? `${label} — Core` : "Core";
   },
 };
+
+// Onglets dans la barre de titre : Core dessine la barre de titre et les
+// boutons de la fenêtre. Le réglage browser.tabs.inTitlebar de Gecko (0 =
+// barre du système, 1 = barre de Core, -1 = choix du système) est lu via
+// Services.appinfo.drawInTitlebar ; les réglages de Core le modifient.
+const gTitlebar = {
+  PREF: "browser.tabs.inTitlebar",
+
+  init() {
+    // Sous Linux, seulement si le bureau sait dessiner une fenêtre sans
+    // décoration (client-side decorations).
+    this.supported =
+      AppConstants.MOZ_WIDGET_TOOLKIT != "gtk" ||
+      window.matchMedia("(-moz-gtk-csd-available)").matches;
+    Services.prefs.addObserver(this.PREF, this);
+    window.addEventListener("unload", () => Services.prefs.removeObserver(this.PREF, this));
+    window.addEventListener("sizemodechange", () => this.update());
+
+    document.getElementById("window-minimize").addEventListener("click", () => window.minimize());
+    document.getElementById("window-maximize").addEventListener("click", () => {
+      if (window.windowState == window.STATE_MAXIMIZED) {
+        window.restore();
+      } else {
+        window.maximize();
+      }
+    });
+    document.getElementById("window-close").addEventListener("click", () => window.close());
+    this.update();
+  },
+
+  observe() {
+    this.update();
+  },
+
+  update() {
+    document.documentElement.toggleAttribute(
+      "customtitlebar",
+      this.supported && Services.appinfo.drawInTitlebar && !window.fullScreen
+    );
+    let maximized = window.windowState == window.STATE_MAXIMIZED;
+    let button = document.getElementById("window-maximize");
+    button.title = maximized ? "Restaurer" : "Agrandir";
+    button.setAttribute("aria-label", button.title);
+  },
+};
+
+function quit() {
+  Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
+}
 
 // Une seule fenêtre de réglages : on la ramène au premier plan si elle existe.
 function openSettings() {
@@ -303,6 +381,8 @@ function onKeyDown(event) {
   let handled = true;
   if (accel && event.key == "t") {
     gTabs.open(null);
+  } else if (accel && event.key == "q") {
+    quit();
   } else if (accel && event.key == "w") {
     gTabs.close(gTabs.selected);
   } else if ((accel && event.key == "l") || event.key == "F6") {
@@ -397,7 +477,17 @@ window.addEventListener(
     window.E10SUtils = E10SUtils;
 
     gToolbar.init();
+    gTitlebar.init();
     window.addEventListener("keydown", onKeyDown, true);
+
+    // Molette sur les onglets : défilement horizontal, sans flèches.
+    let tabstrip = document.getElementById("tabstrip");
+    tabstrip.addEventListener("wheel", event => {
+      if (!event.deltaX) {
+        tabstrip.scrollLeft += event.deltaY * (event.deltaMode ? 40 : 1);
+        event.preventDefault();
+      }
+    }, { passive: false });
 
     let urls = urlsFromCommandLine();
     if (!urls.length) {

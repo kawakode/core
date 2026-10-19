@@ -4,8 +4,8 @@
 
 "use strict";
 
-// Fenêtre de réglages : sandbox des processus de contenu et réponse par
-// défaut aux certificats invalides.
+// Fenêtre de réglages : sandbox des processus de contenu, barre de titre et
+// réponse par défaut aux certificats invalides.
 
 const SANDBOX_PREF = "security.sandbox.content.level";
 
@@ -72,10 +72,32 @@ const gCertError = {
   },
 };
 
+// Barre de titre du système plutôt que celle de Core (onglets dans la barre
+// de titre). Décoché, on revient au choix par défaut du système.
+const gTitlebar = {
+  PREF: "browser.tabs.inTitlebar",
+
+  init() {
+    let checkbox = document.getElementById("system-titlebar");
+    checkbox.checked = !Services.appinfo.drawInTitlebar;
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        Services.prefs.setIntPref(this.PREF, 0);
+      } else {
+        Services.prefs.clearUserPref(this.PREF);
+        if (!Services.appinfo.drawInTitlebar) {
+          Services.prefs.setIntPref(this.PREF, 1);
+        }
+      }
+    });
+  },
+};
+
 window.addEventListener(
   "load",
   () => {
     gSandbox.init();
+    gTitlebar.init();
     gCertError.init();
     document.getElementById("restart").addEventListener("click", () => {
       Services.startup.quit(

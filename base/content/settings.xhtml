@@ -5,7 +5,7 @@
 
 <html xmlns="http://www.w3.org/1999/xhtml"
       windowtype="core:settings"
-      width="480" height="360">
+      width="480" height="440">
 <head>
   <meta http-equiv="Content-Security-Policy"
         content="script-src chrome: resource:; object-src 'none';" />
@@ -30,6 +30,16 @@
     <p id="restart-needed" hidden="true">
       Le changement s'applique au prochain démarrage.
       <button id="restart">Redémarrer Core</button>
+    </p>
+  </section>
+  <section>
+    <label>
+      <input id="system-titlebar" type="checkbox" />
+      Utiliser la barre de titre du système
+    </label>
+    <p class="help">
+      Les onglets restent en haut, sous la barre de titre de votre bureau.
+      Utile si un gestionnaire de fenêtres affiche mal celle de Core.
     </p>
   </section>
   <section>
