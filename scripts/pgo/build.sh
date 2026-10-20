@@ -17,4 +17,7 @@ LLVM_PROFDATA=$HOME/.mozbuild/clang/bin/llvm-profdata JARLOG_FILE=$PWD/jarlog/en
   ../mach python ../core/scripts/pgo/profileserver.py --binary $PWD/dist/bin/core
 cd ..
 
+# Un build incrémental mélangerait l'ancien et le nouveau profil (erreur de
+# lien « ProfileSummary »).
+rm -rf obj-core-pgo
 MOZCONFIG=$PWD/core/mozconfigs/linux-pgo-use ./mach build
