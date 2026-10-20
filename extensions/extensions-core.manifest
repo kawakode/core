@@ -1,0 +1,7 @@
+# API d'extensions propres à Core (onglets, fenêtres, boutons), comme
+# browser/components/extensions/extensions-browser.manifest pour Firefox.
+category webextension-modules core chrome://core/content/extensions/ext-core.json
+
+category webextension-scripts c-core chrome://core/content/extensions/parent/ext-core.js
+category webextension-scripts-devtools core chrome://core/content/extensions/child/ext-core.js
+category webextension-scripts-addon core chrome://core/content/extensions/child/ext-core.js

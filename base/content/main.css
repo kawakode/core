@@ -129,6 +129,65 @@ body {
   color: var(--core-text-muted);
 }
 
+/* Boutons des extensions : icône fournie par l'extension, badge en bas à
+ * droite (texte et couleurs choisis par l'extension). */
+
+#extension-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+#extension-buttons:empty {
+  display: none;
+}
+
+.extension-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.extension-button[open] {
+  background-color: var(--core-bg-active);
+}
+
+.extension-button-icon {
+  width: 16px;
+  height: 16px;
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
+}
+
+.extension-button-badge {
+  position: absolute;
+  right: 0;
+  bottom: 1px;
+  min-width: 12px;
+  padding: 0 2px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.extension-button-badge[hidden] {
+  display: none;
+}
+
+/* Fenêtres surgissantes des extensions : le contenu fixe sa taille
+ * (toolkit/components/extensions/ext-browser-content.js). */
+
+.browser-extension-panel {
+  --panel-padding: 0;
+}
+
+.webextension-popup-browser {
+  border-radius: var(--core-radius);
+}
+
 #urlbar:focus {
   border: 2px solid var(--core-accent);
   padding: 0 9px;

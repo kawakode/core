@@ -1,0 +1,128 @@
+{
+  "bookmarks": {
+    "url": "chrome://core/content/extensions/parent/ext-bookmarks.js",
+    "schema": "chrome://core/content/extensions/schemas/bookmarks.json",
+    "scopes": [
+      "addon_parent"
+    ],
+    "paths": [
+      [
+        "bookmarks"
+      ]
+    ]
+  },
+  "browserAction": {
+    "url": "chrome://core/content/extensions/parent/ext-browserAction.js",
+    "schema": "chrome://extensions/content/schemas/browser_action.json",
+    "scopes": [
+      "addon_parent"
+    ],
+    "manifest": [
+      "browser_action",
+      "action"
+    ],
+    "paths": [
+      [
+        "browserAction"
+      ],
+      [
+        "action"
+      ]
+    ]
+  },
+  "commands": {
+    "url": "chrome://core/content/extensions/parent/ext-commands.js",
+    "schema": "chrome://core/content/extensions/schemas/commands.json",
+    "scopes": [
+      "addon_parent"
+    ],
+    "events": [
+      "uninstall"
+    ],
+    "manifest": [
+      "commands"
+    ],
+    "paths": [
+      [
+        "commands"
+      ]
+    ]
+  },
+  "contextualIdentities": {
+    "url": "chrome://extensions/content/parent/ext-contextualIdentities.js",
+    "schema": "chrome://extensions/content/schemas/contextual_identities.json",
+    "scopes": [
+      "addon_parent"
+    ],
+    "settings": true,
+    "events": [
+      "startup"
+    ],
+    "permissions": [
+      "contextualIdentities"
+    ],
+    "paths": [
+      [
+        "contextualIdentities"
+      ]
+    ]
+  },
+  "history": {
+    "url": "chrome://core/content/extensions/parent/ext-history.js",
+    "schema": "chrome://core/content/extensions/schemas/history.json",
+    "scopes": [
+      "addon_parent"
+    ],
+    "paths": [
+      [
+        "history"
+      ]
+    ]
+  },
+  "menusInternal": {
+    "url": "chrome://core/content/extensions/parent/ext-menus.js",
+    "schema": "chrome://core/content/extensions/schemas/menus.json",
+    "scopes": [
+      "addon_parent"
+    ],
+    "permissions": [
+      "menus",
+      "contextMenus"
+    ],
+    "paths": [
+      [
+        "contextMenus"
+      ],
+      [
+        "menus"
+      ],
+      [
+        "menusInternal"
+      ]
+    ]
+  },
+  "tabs": {
+    "url": "chrome://core/content/extensions/parent/ext-tabs.js",
+    "schema": "chrome://core/content/extensions/schemas/tabs.json",
+    "scopes": [
+      "addon_parent"
+    ],
+    "paths": [
+      [
+        "tabs"
+      ]
+    ]
+  },
+  "windows": {
+    "url": "chrome://core/content/extensions/parent/ext-windows.js",
+    "schema": "chrome://core/content/extensions/schemas/windows.json",
+    "scopes": [
+      "addon_parent"
+    ],
+    "paths": [
+      [
+        "windows"
+      ]
+    ]
+  }
+}

@@ -15,8 +15,12 @@ const UNLOAD_DELAY_PREF = "core.tabs.unloadAfterMinutes";
 var gTabs = {
   list: [],
   selected: null,
+  // Écouteurs de progression de tous les onglets, appelés avec le <browser>
+  // en premier argument (comme addTabsProgressListener de Firefox) : API
+  // d'extensions tabs.onUpdated, webNavigation.
+  progressListeners: new Set(),
 
-  open(uri, { select = true, openWindowInfo = null, remoteType = null } = {}) {
+  open(uri, { select = true, openWindowInfo = null, remoteType = null, triggeringPrincipal = null } = {}) {
     let tab = document.createElement("div");
     tab.className = "tab";
     tab.setAttribute("role", "tab");
@@ -32,6 +36,10 @@ var gTabs = {
     // browser est null quand l'onglet est déchargé ; unloaded garde alors
     // de quoi le recharger.
     let entry = { browser: null, tab, title, lastSeen: Date.now(), unloaded: null };
+    // L'élément de l'onglet sert d'onglet « natif » aux extensions
+    // (core/extensions/parent/ext-core.js) et à WebDriver.
+    tab.entry = entry;
+    Object.defineProperty(tab, "linkedBrowser", { get: () => entry.browser });
     tab.addEventListener("click", () => this.select(entry));
     tab.addEventListener("auxclick", event => {
       if (event.button == 1) {
@@ -45,7 +53,8 @@ var gTabs = {
 
     document.getElementById("tabstrip").append(tab);
     this.list.push(entry);
-    this.attachBrowser(entry, uri, { openWindowInfo, remoteType });
+    this.attachBrowser(entry, uri, { openWindowInfo, remoteType, triggeringPrincipal });
+    this.dispatch(entry, "TabOpen");
 
     if (select || !this.selected) {
       this.select(entry);
@@ -53,7 +62,7 @@ var gTabs = {
     return entry;
   },
 
-  attachBrowser(entry, uri, { openWindowInfo = null, remoteType = null } = {}) {
+  attachBrowser(entry, uri, { openWindowInfo = null, remoteType = null, triggeringPrincipal = null } = {}) {
     let browser = document.createXULElement("browser");
     browser.permanentKey = new (Cu.getGlobalForObject(Services).Object)();
     for (let [name, value] of Object.entries({
@@ -79,9 +88,29 @@ var gTabs = {
     this.watch(entry);
     if (uri) {
       browser.fixupAndLoadURIString(uri, {
-        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+        triggeringPrincipal:
+          triggeringPrincipal ?? Services.scriptSecurityManager.getSystemPrincipal(),
       });
     }
+  },
+
+  // Événements de tabbrowser (TabOpen, TabSelect, TabClose…), émis sur
+  // l'élément de l'onglet et remontant jusqu'à la fenêtre.
+  dispatch(entry, type, detail = {}) {
+    entry.tab.dispatchEvent(new CustomEvent(type, { bubbles: true, detail }));
+  },
+
+  move(entry, index) {
+    let from = this.list.indexOf(entry);
+    index = Math.min(Math.max(index, 0), this.list.length - 1);
+    if (from == -1 || from == index) {
+      return;
+    }
+    this.list.splice(from, 1);
+    this.list.splice(index, 0, entry);
+    let next = this.list[index + 1];
+    document.getElementById("tabstrip").insertBefore(entry.tab, next?.tab ?? null);
+    this.dispatch(entry, "TabMove", { fromIndex: from, toIndex: index });
   },
 
   remoteTypeFor(uri) {
@@ -101,6 +130,7 @@ var gTabs = {
     if (this.selected == entry) {
       return;
     }
+    let previous = this.selected;
     if (this.selected) {
       this.selected.lastSeen = Date.now();
       this.selected.tab.removeAttribute("selected");
@@ -108,17 +138,13 @@ var gTabs = {
       this.selected.browser.docShellIsActive = false;
     }
     this.selected = entry;
-    if (entry.unloaded) {
-      let { uri } = entry.unloaded;
-      entry.unloaded = null;
-      entry.tab.removeAttribute("unloaded");
-      this.attachBrowser(entry, uri);
-    }
+    this.restore(entry);
     entry.tab.setAttribute("selected", "true");
     entry.tab.scrollIntoView({ block: "nearest", inline: "nearest" });
     entry.browser.setAttribute("selected", "true");
     entry.browser.docShellIsActive = true;
     gToolbar.update();
+    this.dispatch(entry, "TabSelect", { previousTab: previous?.tab });
     if (entry.browser.currentURI.spec == "about:blank") {
       gToolbar.urlbar.focus();
     } else {
@@ -135,6 +161,7 @@ var gTabs = {
       window.close();
       return;
     }
+    this.dispatch(entry, "TabClose");
     this.list.splice(index, 1);
     if (this.selected == entry) {
       this.selected = null;
@@ -142,6 +169,18 @@ var gTabs = {
     }
     entry.tab.remove();
     entry.browser?.remove();
+  },
+
+  // Recharge un onglet déchargé depuis son adresse.
+  restore(entry) {
+    if (!entry.unloaded) {
+      return;
+    }
+    let { uri } = entry.unloaded;
+    entry.unloaded = null;
+    entry.tab.removeAttribute("unloaded");
+    this.attachBrowser(entry, uri);
+    this.dispatch(entry, "TabBrowserInserted");
   },
 
   // Libère le processus et la mémoire d'un onglet en arrière-plan. Il est
@@ -159,6 +198,7 @@ var gTabs = {
     entry.tab.setAttribute("unloaded", "true");
     entry.browser.remove();
     entry.browser = null;
+    this.dispatch(entry, "TabBrowserDiscarded");
     return true;
   },
 
@@ -190,16 +230,19 @@ var gTabs = {
       entry.title.textContent = label;
       entry.tab.title = label;
       if (entry == this.selected) {
-        document.title = `${label} — Core`;
+        gToolbar.updateTitle(label);
       }
+      this.dispatch(entry, "TabAttrModified", { changed: ["label"] });
     });
 
     // Un onglet qui joue du son n'est jamais déchargé.
     browser.addEventListener("DOMAudioPlaybackStarted", () => {
       entry.playing = true;
+      this.dispatch(entry, "TabAttrModified", { changed: ["soundplaying"] });
     });
     browser.addEventListener("DOMAudioPlaybackStopped", () => {
       entry.playing = false;
+      this.dispatch(entry, "TabAttrModified", { changed: ["soundplaying"] });
     });
 
     // L'écouteur est porté par le BrowsingContext de l'onglet : il survit aux
@@ -210,12 +253,13 @@ var gTabs = {
         "nsIWebProgressListener",
         "nsISupportsWeakReference",
       ]),
-      onLocationChange(webProgress) {
+      onLocationChange(webProgress, ...args) {
         if (webProgress.isTopLevel && entry == gTabs.selected) {
           gToolbar.update();
         }
+        gTabs.notifyProgress("onLocationChange", browser, webProgress, ...args);
       },
-      onStateChange(webProgress, request, stateFlags) {
+      onStateChange(webProgress, request, stateFlags, ...args) {
         if (
           webProgress.isTopLevel &&
           stateFlags & Ci.nsIWebProgressListener.STATE_IS_NETWORK &&
@@ -223,13 +267,34 @@ var gTabs = {
         ) {
           gToolbar.update();
         }
+        gTabs.notifyProgress("onStateChange", browser, webProgress, request, stateFlags, ...args);
       },
     };
     entry.progressListener = listener;
     browser.addProgressListener(
       listener,
-      Ci.nsIWebProgress.NOTIFY_LOCATION | Ci.nsIWebProgress.NOTIFY_STATE_NETWORK
+      Ci.nsIWebProgress.NOTIFY_LOCATION |
+        Ci.nsIWebProgress.NOTIFY_STATE_NETWORK |
+        Ci.nsIWebProgress.NOTIFY_STATE_WINDOW
     );
+  },
+
+  addTabsProgressListener(listener) {
+    this.progressListeners.add(listener);
+  },
+
+  removeTabsProgressListener(listener) {
+    this.progressListeners.delete(listener);
+  },
+
+  notifyProgress(method, ...args) {
+    for (let listener of this.progressListeners) {
+      try {
+        listener[method]?.(...args);
+      } catch (e) {
+        console.error(e);
+      }
+    }
   },
 };
 
@@ -286,6 +351,7 @@ const gToolbar = {
     }
     let commands = {
       "menu-newtab": () => gTabs.open(null),
+      "menu-addons": () => BrowserAddonUI.openAddonsMgr(),
       "menu-settings": openSettings,
       "menu-quit": quit,
     };
@@ -306,8 +372,14 @@ const gToolbar = {
     reload.toggleAttribute("loading", loading);
     reload.title = loading ? "Arrêter" : "Recharger (Ctrl+R)";
     reload.setAttribute("aria-label", loading ? "Arrêter" : "Recharger");
-    let label = browser.contentTitle || spec;
-    document.title = label ? `${label} — Core` : "Core";
+    this.updateTitle(browser.contentTitle || spec);
+  },
+
+  // Titre de la fenêtre, précédé du préfixe éventuel d'une extension
+  // (windows.update({ titlePreface })).
+  updateTitle(label) {
+    let preface = document.documentElement.getAttribute("titlepreface") ?? "";
+    document.title = preface + (label ? `${label} — Core` : "Core");
   },
 };
 
@@ -374,6 +446,74 @@ function openSettings() {
   );
 }
 
+// Ouvre une adresse dans un onglet, ou bascule sur l'onglet qui l'affiche déjà.
+function switchToTabHavingURI(url, openNew = true, { triggeringPrincipal = null } = {}) {
+  let spec = url instanceof Ci.nsIURI ? url.spec : url;
+  // Les réglages de Core sont une fenêtre, pas une page about:.
+  if (/^about:(preferences|settings)\b/.test(spec)) {
+    openSettings();
+    return true;
+  }
+  let entry = gTabs.list.find(
+    e => (e.browser?.currentURI.spec ?? e.unloaded?.uri) == spec
+  );
+  if (entry) {
+    gTabs.select(entry);
+    return true;
+  }
+  if (openNew) {
+    gTabs.open(spec, { triggeringPrincipal });
+  }
+  return false;
+}
+
+// Fonctions de browser/ que toolkit/ appelle sur la fenêtre principale
+// (about:addons, gestionnaire de téléchargements…). Tout s'ouvre en onglet.
+function openTrustedLinkIn(url, where, { triggeringPrincipal = null } = {}) {
+  gTabs.open(url, { triggeringPrincipal });
+}
+
+function openWebLinkIn(url, where, { triggeringPrincipal = null } = {}) {
+  gTabs.open(url, {
+    triggeringPrincipal:
+      triggeringPrincipal ?? Services.scriptSecurityManager.createNullPrincipal({}),
+  });
+}
+
+var BrowserAddonUI = {
+  // view : par exemple "addons://detail/<id>/preferences".
+  async openAddonsMgr(view) {
+    switchToTabHavingURI("about:addons");
+    if (!view) {
+      return;
+    }
+    let browser = gTabs.selected.browser;
+    let win = browser.contentWindow;
+    if (!win?.loadView || win.document.readyState != "complete") {
+      win = await new Promise(resolve => {
+        let observer = subject => {
+          if (subject.docShell?.chromeEventHandler == browser) {
+            Services.obs.removeObserver(observer, "EM-loaded");
+            resolve(subject);
+          }
+        };
+        Services.obs.addObserver(observer, "EM-loaded");
+      });
+    }
+    win.loadView(view);
+  },
+
+  // Appelé par about:addons avant de supprimer une extension.
+  async promptRemoveExtension(addon) {
+    let remove = Services.prompt.confirm(
+      window,
+      "Supprimer l'extension",
+      `Supprimer ${addon.name} de Core ?`
+    );
+    return { remove, report: false };
+  },
+};
+
 // Raccourcis clavier, en phase de capture pour passer avant la page.
 function onKeyDown(event) {
   let accel = AppConstants.platform == "macosx" ? event.metaKey : event.ctrlKey;
@@ -381,6 +521,8 @@ function onKeyDown(event) {
   let handled = true;
   if (accel && event.key == "t") {
     gTabs.open(null);
+  } else if (accel && event.shiftKey && event.key.toLowerCase() == "a") {
+    BrowserAddonUI.openAddonsMgr();
   } else if (accel && event.key == "q") {
     quit();
   } else if (accel && event.key == "w") {
@@ -444,24 +586,41 @@ window.browserDOMWindow = {
   },
 };
 
-// Adresses passées en ligne de commande (premier lancement uniquement).
-function urlsFromCommandLine() {
-  let cmdLine = window.arguments?.[0];
-  if (!(cmdLine instanceof Ci.nsICommandLine)) {
-    return [];
-  }
-  let urls = [];
-  for (let i = 0; i < cmdLine.length; i++) {
-    let arg = cmdLine.getArgument(i);
-    if (!arg.startsWith("-")) {
-      try {
-        urls.push(cmdLine.resolveURI(arg).spec);
-      } catch (e) {
-        urls.push(arg);
+// Adresses à ouvrir dans une nouvelle fenêtre : ligne de commande (premier
+// lancement), ou arguments de Services.ww.openWindow comme Firefox les
+// passe (API d'extensions windows.create) : une adresse, une liste
+// d'adresses ou un onglet d'une autre fenêtre à déplacer ici.
+function urlsFromArguments() {
+  let arg = window.arguments?.[0];
+  if (arg instanceof Ci.nsICommandLine) {
+    let urls = [];
+    for (let i = 0; i < arg.length; i++) {
+      let value = arg.getArgument(i);
+      if (!value.startsWith("-")) {
+        try {
+          urls.push(arg.resolveURI(value).spec);
+        } catch (e) {
+          urls.push(value);
+        }
       }
     }
+    return { urls };
   }
-  return urls;
+  let triggeringPrincipal = window.arguments?.[8] ?? null;
+  if (typeof arg == "string") {
+    return { urls: [arg], triggeringPrincipal };
+  }
+  if (arg instanceof Ci.nsIArray) {
+    let urls = Array.from(arg.enumerate(Ci.nsISupportsString), str => str.data);
+    return { urls, triggeringPrincipal };
+  }
+  if (arg?.entry) {
+    let { entry } = arg;
+    let url = entry.browser?.currentURI.spec ?? entry.unloaded?.uri;
+    arg.documentGlobal.gTabs.close(entry);
+    return { urls: [url] };
+  }
+  return { urls: [] };
 }
 
 // Interface minimale de gBrowser attendue par WebDriver (remote/shared/TabManager).
@@ -488,6 +647,9 @@ var gBrowser = {
   removeTab(tab) {
     gTabs.close(tab.entry);
   },
+  updateTitlebar() {
+    gToolbar.update();
+  },
   addEventListener(...args) {
     window.addEventListener(...args);
   },
@@ -495,16 +657,24 @@ var gBrowser = {
     window.removeEventListener(...args);
   },
   _tab(entry) {
-    entry.tab.entry = entry;
-    if (!("linkedBrowser" in entry.tab)) {
-      Object.defineProperty(entry.tab, "linkedBrowser", {
-        get: () => entry.browser,
-      });
-    }
     return entry.tab;
   },
 };
-var gBrowserInit = { delayedStartupFinished: false };
+// Core n'a pas de barre latérale : les raccourcis clavier d'extensions
+// (toolkit/components/extensions/ExtensionShortcuts.sys.mjs) appellent
+// quand même ceci pour _execute_sidebar_action.
+var SidebarController = {
+  updateShortcut() {},
+};
+
+var gBrowserInit = {
+  delayedStartupFinished: false,
+  // Core ne déplace pas d'onglet d'une fenêtre à l'autre (lu par l'API
+  // d'extensions webNavigation).
+  isAdoptingTab() {
+    return false;
+  },
+};
 
 window.addEventListener(
   "load",
@@ -541,14 +711,14 @@ window.addEventListener(
       }
     }, { passive: false });
 
-    let urls = urlsFromCommandLine();
+    let { urls, triggeringPrincipal } = urlsFromArguments();
     if (!urls.length) {
       let { HomePage } = ChromeUtils.importESModule(
         "resource:///modules/HomePage.sys.mjs"
       );
       urls = [HomePage.get()];
     }
-    urls.forEach((url, i) => gTabs.open(url, { select: i == 0 }));
+    urls.forEach((url, i) => gTabs.open(url, { select: i == 0, triggeringPrincipal }));
 
     gBrowserInit.delayedStartupFinished = true;
     Services.obs.notifyObservers(window, "browser-delayed-startup-finished");

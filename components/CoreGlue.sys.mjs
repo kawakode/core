@@ -31,5 +31,9 @@ CoreGlue.prototype = {
       },
       matches: ["about:certerror?*"],
     });
+    // Questions posées pendant l'installation d'une extension.
+    ChromeUtils.importESModule(
+      "resource:///modules/ExtensionsUI.sys.mjs"
+    ).ExtensionsUI.init();
   },
 };

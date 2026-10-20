@@ -1,0 +1,32 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# Les API qui ne dépendent pas de l'interface de Firefox (historique,
+# favoris, raccourcis clavier, fenêtres, envoi de messages aux onglets) sont
+# reprises telles quelles de browser/components/extensions/.
+core.jar:
+  content/core/extensions/ext-core.json                  (ext-core.json)
+  content/core/extensions/parent/ext-core.js             (parent/ext-core.js)
+  content/core/extensions/parent/ext-browserAction.js    (parent/ext-browserAction.js)
+  content/core/extensions/parent/ext-menus.js            (parent/ext-menus.js)
+  content/core/extensions/parent/ext-tabs.js             (parent/ext-tabs.js)
+  content/core/extensions/parent/ext-bookmarks.js        (/browser/components/extensions/parent/ext-bookmarks.js)
+  content/core/extensions/parent/ext-commands.js         (/browser/components/extensions/parent/ext-commands.js)
+  content/core/extensions/parent/ext-history.js          (/browser/components/extensions/parent/ext-history.js)
+  content/core/extensions/parent/ext-windows.js          (/browser/components/extensions/parent/ext-windows.js)
+  content/core/extensions/child/ext-core.js              (child/ext-core.js)
+  content/core/extensions/child/ext-menus.js             (/browser/components/extensions/child/ext-menus.js)
+  content/core/extensions/child/ext-tabs.js              (/browser/components/extensions/child/ext-tabs.js)
+  content/core/extensions/schemas/bookmarks.json         (/browser/components/extensions/schemas/bookmarks.json)
+  content/core/extensions/schemas/commands.json          (/browser/components/extensions/schemas/commands.json)
+  content/core/extensions/schemas/history.json           (/browser/components/extensions/schemas/history.json)
+  content/core/extensions/schemas/menus.json             (/browser/components/extensions/schemas/menus.json)
+  content/core/extensions/schemas/tabs.json              (/browser/components/extensions/schemas/tabs.json)
+  content/core/extensions/schemas/windows.json           (/browser/components/extensions/schemas/windows.json)
+
+# Feuilles de style que toolkit/ charge dans les popups et les pages
+# d'options des extensions, à leur adresse de Firefox.
+% content browser %content/browser/ contentaccessible=yes
+  content/browser/extension.css               (/browser/components/extensions/extension.css)
+  content/browser/extension-popup-panel.css   (/browser/components/extensions/extension-popup-panel.css)
