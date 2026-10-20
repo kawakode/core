@@ -1,0 +1,14 @@
+# Passe 1 du PGO : build instrumenté (voir scripts/pgo/build.sh).
+# Rust doit utiliser la même version majeure de LLVM que clang (21), sinon
+# les données de profil sont incompatibles : RUSTC et CARGO sont fixés par
+# scripts/pgo/build.sh.
+ac_add_options --enable-project=core
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-core-instr
+
+ac_add_options --enable-release
+ac_add_options --disable-debug
+ac_add_options --enable-optimize
+ac_add_options --disable-tests
+ac_add_options --enable-profile-generate=cross
+
+. "$topsrcdir/core/mozconfigs/common"
