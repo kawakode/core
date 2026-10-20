@@ -464,6 +464,48 @@ function urlsFromCommandLine() {
   return urls;
 }
 
+// Interface minimale de gBrowser attendue par WebDriver (remote/shared/TabManager).
+var gBrowser = {
+  get tabs() {
+    return gTabs.list.map(entry => this._tab(entry));
+  },
+  get selectedTab() {
+    return gTabs.selected && this._tab(gTabs.selected);
+  },
+  set selectedTab(tab) {
+    gTabs.select(tab.entry);
+  },
+  get selectedBrowser() {
+    return gTabs.selected?.browser ?? null;
+  },
+  getTabForBrowser(browser) {
+    let entry = gTabs.list.find(e => e.browser == browser);
+    return entry ? this._tab(entry) : null;
+  },
+  addTab(uri) {
+    return this._tab(gTabs.open(uri, { select: false }));
+  },
+  removeTab(tab) {
+    gTabs.close(tab.entry);
+  },
+  addEventListener(...args) {
+    window.addEventListener(...args);
+  },
+  removeEventListener(...args) {
+    window.removeEventListener(...args);
+  },
+  _tab(entry) {
+    entry.tab.entry = entry;
+    if (!("linkedBrowser" in entry.tab)) {
+      Object.defineProperty(entry.tab, "linkedBrowser", {
+        get: () => entry.browser,
+      });
+    }
+    return entry.tab;
+  },
+};
+var gBrowserInit = { delayedStartupFinished: false };
+
 window.addEventListener(
   "load",
   () => {
@@ -497,6 +539,12 @@ window.addEventListener(
       urls = [HomePage.get()];
     }
     urls.forEach((url, i) => gTabs.open(url, { select: i == 0 }));
+
+    gBrowserInit.delayedStartupFinished = true;
+    Services.obs.notifyObservers(window, "browser-delayed-startup-finished");
+    Services.tm.idleDispatchToMainThread(() =>
+      Services.obs.notifyObservers(null, "browser-idle-startup-tasks-finished")
+    );
 
     setInterval(() => gTabs.unloadIdle(), 60 * 1000);
     let onMemoryPressure = () => gTabs.unloadAll();

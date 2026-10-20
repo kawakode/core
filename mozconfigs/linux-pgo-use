@@ -1,0 +1,18 @@
+# Passe 2 du PGO : build de distribution optimisé par le profil, LTO croisé
+# C++/Rust (voir scripts/pgo/build.sh).
+ac_add_options --enable-project=core
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-core-pgo
+
+ac_add_options --enable-release
+ac_add_options --disable-debug
+ac_add_options --enable-optimize
+ac_add_options --disable-tests
+ac_add_options --enable-lto=cross
+ac_add_options --enable-profile-use=cross
+ac_add_options --with-pgo-profile-path=$topsrcdir/obj-core-instr/merged.profdata
+ac_add_options --with-pgo-jarlog=$topsrcdir/obj-core-instr/jarlog/en-US.log
+ac_add_options --enable-strip
+ac_add_options --enable-install-strip
+ac_add_options --enable-packed-relative-relocs
+
+. "$topsrcdir/core/mozconfigs/common"

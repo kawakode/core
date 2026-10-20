@@ -20,6 +20,19 @@ MOZCONFIG=$PWD/core/mozconfigs/linux-dev ./mach run
 `mozconfigs/linux-release` active LTO et retire les symboles. Les options
 communes (composants retirés ou gardés) sont dans `mozconfigs/common`.
 
+### Build optimisé par profil (PGO + LTO)
+
+Comme Firefox officiel : un build instrumenté, une exécution de profilage
+(Speedometer, SunSpider, tests de mise en page de `build/pgo`) sous Xvfb, puis
+le build final. Environ 30 % de plus sur Speedometer 3 qu'un build `--enable-optimize`.
+
+```sh
+Xvfb :99 & DISPLAY=:99 core/scripts/pgo/build.sh
+```
+
+Rust doit partager la version majeure de LLVM du clang de Mozilla (21) ; le
+script installe et utilise Rust 1.92 pour ces deux builds.
+
 ## Construire (Windows, depuis Linux)
 
 Cross-compilation x86_64 avec clang-cl, comme la CI de Mozilla. Le configure
