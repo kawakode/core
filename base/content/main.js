@@ -522,6 +522,16 @@ window.addEventListener(
     gTitlebar.init();
     window.addEventListener("keydown", onKeyDown, true);
 
+    // window.close() d'une page (fenêtres surgissantes, connexions OAuth) :
+    // relayé par toolkit/actors/BrowserElementParent.sys.mjs.
+    document.getElementById("browsers").addEventListener("DOMWindowClose", event => {
+      let entry = gTabs.list.find(e => e.browser == event.target);
+      if (entry) {
+        event.preventDefault();
+        gTabs.close(entry);
+      }
+    });
+
     // Molette sur les onglets : défilement horizontal, sans flèches.
     let tabstrip = document.getElementById("tabstrip");
     tabstrip.addEventListener("wheel", event => {
