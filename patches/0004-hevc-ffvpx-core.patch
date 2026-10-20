@@ -1,0 +1,305 @@
+diff --git a/dom/media/ipc/RemoteMediaManagerChild.cpp b/dom/media/ipc/RemoteMediaManagerChild.cpp
+index 38af925e10..d6aa131b88 100644
+--- a/dom/media/ipc/RemoteMediaManagerChild.cpp
++++ b/dom/media/ipc/RemoteMediaManagerChild.cpp
+@@ -285,8 +285,11 @@ bool RemoteMediaManagerChild::Supports(RemoteMediaIn aLocation,
+           return false;
+         }
+ #if defined(XP_WIN)
++        // Core: ffvpx decodes HEVC in software in the RDD process.
+         return aLocation == RemoteMediaIn::UtilityProcess_MFMediaEngineCDM ||
+-               aLocation == RemoteMediaIn::GpuProcess;
++               aLocation == RemoteMediaIn::GpuProcess ||
++               (aLocation == RemoteMediaIn::RddProcess &&
++                trackSupport.contains(TrackSupport::DecodeVideo));
+ #else
+         return trackSupport.contains(TrackSupport::DecodeVideo);
+ #endif
+diff --git a/dom/media/platforms/ffmpeg/FFmpegDecoderModule.h b/dom/media/platforms/ffmpeg/FFmpegDecoderModule.h
+index acda375b50..01da6f0862 100644
+--- a/dom/media/platforms/ffmpeg/FFmpegDecoderModule.h
++++ b/dom/media/platforms/ffmpeg/FFmpegDecoderModule.h
+@@ -90,12 +90,13 @@ class FFmpegDecoderModule : public PlatformDecoderModule {
+         {AV_CODEC_ID_VP8, gfx::gfxVars::UseVP8HwDecode()},
+ #  endif
+ 
++#  if defined(MOZ_WIDGET_GTK) && LIBAVCODEC_VERSION_MAJOR >= 55
++    // Core: HEVC can be decoded via VA-API by the system ffmpeg and by ffvpx.
++        {AV_CODEC_ID_HEVC, gfx::gfxVars::UseHEVCHwDecode()},
++#  endif
+ #  if defined(MOZ_WIDGET_GTK) && !defined(FFVPX_VERSION)
+     // These proprietary video codecs can only be decoded via hardware by using
+     // the system ffmpeg, not supported by ffvpx.
+-#    if LIBAVCODEC_VERSION_MAJOR >= 55
+-        {AV_CODEC_ID_HEVC, gfx::gfxVars::UseHEVCHwDecode()},
+-#    endif
+         {AV_CODEC_ID_H264, gfx::gfxVars::UseH264HwDecode()},
+ #  endif
+ #  ifdef MOZ_WIDGET_ANDROID
+diff --git a/media/ffvpx/config_components.h b/media/ffvpx/config_components.h
+index 23b3f2d848..2c3193ad42 100644
+--- a/media/ffvpx/config_components.h
++++ b/media/ffvpx/config_components.h
+@@ -14,6 +14,11 @@
+ #undef CONFIG_AV1_VAAPI_HWACCEL
+ #endif
+ 
++#ifdef CONFIG_HEVC_DECODER
++#undef CONFIG_HEVC_DECODER
++#undef CONFIG_HEVC_VAAPI_HWACCEL
++#endif
++
+ #if defined(MOZ_FFVPX_AUDIOONLY)
+ #    include "config_components_audio_only.h"
+ #else
+diff --git a/media/ffvpx/config_override.h b/media/ffvpx/config_override.h
+index 0fe24bd0d0..7609946a58 100644
+--- a/media/ffvpx/config_override.h
++++ b/media/ffvpx/config_override.h
+@@ -43,6 +43,64 @@
+ #define CONFIG_AV1_VAAPI_HWACCEL 0
+ #endif
+ 
++/**
++ * HEVC decoding (Core): software decoder, plus VA-API on Linux.
++ **/
++#undef CONFIG_HEVC_DECODER
++#undef CONFIG_HEVC_VAAPI_HWACCEL
++#undef CONFIG_BSWAPDSP
++#undef CONFIG_CABAC
++#undef CONFIG_GOLOMB
++#undef CONFIG_HEVCPARSE
++#undef CONFIG_HEVC_SEI
++
++#if !defined(MOZ_FFVPX_AUDIOONLY) && !defined(MOZ_WIDGET_ANDROID)
++#define CONFIG_HEVC_DECODER 1
++#define CONFIG_BSWAPDSP 1
++#define CONFIG_CABAC 1
++#define CONFIG_GOLOMB 1
++#define CONFIG_HEVCPARSE 1
++#define CONFIG_HEVC_SEI 1
++#else
++#define CONFIG_HEVC_DECODER 0
++#define CONFIG_BSWAPDSP 0
++#define CONFIG_CABAC 0
++#define CONFIG_GOLOMB 0
++#define CONFIG_HEVCPARSE 0
++#define CONFIG_HEVC_SEI 0
++#endif
++
++// Not listed in config_components_audio_video.h, which predates them.
++#undef CONFIG_HEVC_D3D12VA_HWACCEL
++#undef CONFIG_HEVC_VULKAN_HWACCEL
++#undef CONFIG_H264_SEI
++#undef CONFIG_VVC_SEI
++#define CONFIG_HEVC_D3D12VA_HWACCEL 0
++#define CONFIG_HEVC_VULKAN_HWACCEL 0
++#define CONFIG_H264_SEI 0
++#define CONFIG_VVC_SEI 0
++
++// FFmpeg's configure passes -DPIC for shared libraries; the x86 CABAC inline
++// assembly used by HEVC needs it to avoid absolute relocations.
++#if defined(__x86_64__) && defined(__PIC__) && !defined(PIC)
++#define PIC 1
++#endif
++
++// The aarch64 config files predate these CPU extensions; the HEVC NEON code
++// then uses its plain NEON functions.
++#ifndef HAVE_I8MM
++#define HAVE_I8MM 0
++#endif
++#ifndef HAVE_DOTPROD
++#define HAVE_DOTPROD 0
++#endif
++
++#if defined(MOZ_WIDGET_GTK) && !defined(MOZ_FFVPX_AUDIOONLY)
++#define CONFIG_HEVC_VAAPI_HWACCEL 1
++#else
++#define CONFIG_HEVC_VAAPI_HWACCEL 0
++#endif
++
+ /**
+  * Windows Hardware Video Decoding
+  **/
+diff --git a/media/ffvpx/libavcodec/aarch64/moz.build b/media/ffvpx/libavcodec/aarch64/moz.build
+index 54e2b90141..8f8b6524d7 100644
+--- a/media/ffvpx/libavcodec/aarch64/moz.build
++++ b/media/ffvpx/libavcodec/aarch64/moz.build
+@@ -40,6 +40,19 @@ if not CONFIG['MOZ_FFVPX_AUDIOONLY']:
+         'vp9mc_aarch64.S',
+         'vp9mc_neon.S',
+     ]
++    if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
++        # HEVC decoder
++        SOURCES += [
++            'h26x/epel_neon.S',
++            'h26x/qpel_neon.S',
++            'h26x/sao_neon.S',
++            'hevcdsp_deblock_neon.S',
++            'hevcdsp_dequant_neon.S',
++            'hevcdsp_idct_neon.S',
++            'hevcdsp_init_aarch64.c',
++            'hevcpred_init_aarch64.c',
++            'hevcpred_neon.S',
++        ]
+ else:
+     SOURCES += [
+         'idctdsp_init_aarch64.c',
+diff --git a/media/ffvpx/libavcodec/codec_list.c b/media/ffvpx/libavcodec/codec_list.c
+index 77ed5707b6..d5c071ae35 100644
+--- a/media/ffvpx/libavcodec/codec_list.c
++++ b/media/ffvpx/libavcodec/codec_list.c
+@@ -5,6 +5,9 @@ static const FFCodec * const codec_list[] = {
+ #if CONFIG_VP9_DECODER
+     &ff_vp9_decoder,
+ #endif
++#if CONFIG_HEVC_DECODER
++    &ff_hevc_decoder,
++#endif
+ #if CONFIG_FLAC_DECODER
+     &ff_flac_decoder,
+ #endif
+diff --git a/media/ffvpx/libavcodec/dovi_rpu.h b/media/ffvpx/libavcodec/dovi_rpu.h
+index 64388d0650..404de9b367 100644
+--- a/media/ffvpx/libavcodec/dovi_rpu.h
++++ b/media/ffvpx/libavcodec/dovi_rpu.h
+@@ -27,6 +27,8 @@ typedef struct AVDOVIMetadata {
+ } AVDOVIMetadata;
+ 
+ static void ff_dovi_ctx_unref(DOVIContext* ctx) {}
++static void ff_dovi_ctx_replace(DOVIContext* s, const DOVIContext* s0) {}
++static void ff_dovi_ctx_flush(DOVIContext* ctx) {}
+ static void ff_dovi_update_cfg(DOVIContext* ctx,
+                                AVDOVIDecoderConfigurationRecord* record) {}
+ static int ff_dovi_rpu_parse(DOVIContext* ctx, uint8_t* buf, size_t len,
+diff --git a/media/ffvpx/libavcodec/moz.build b/media/ffvpx/libavcodec/moz.build
+index f9b65533fb..abd1c4fefa 100644
+--- a/media/ffvpx/libavcodec/moz.build
++++ b/media/ffvpx/libavcodec/moz.build
+@@ -123,6 +123,22 @@ if not CONFIG['MOZ_FFVPX_AUDIOONLY']:
+         'vpx_rac.c',
+     ]
+ 
++    if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
++        # HEVC decoder. Its own directory, because of duplicate file names.
++        DIRS += ['hevc']
++        SOURCES += [
++            'aom_film_grain.c',
++            'bswapdsp.c',
++            'cabac.c',
++            'dynamic_hdr_vivid.c',
++            'h2645_parse.c',
++            'h2645_sei.c',
++            'h2645_vui.c',
++            'h2645data.c',
++            'h265_profile_level.c',
++            'h274.c',
++        ]
++
+     if CONFIG["MOZ_SYSTEM_AV1"]:
+         CFLAGS += CONFIG['MOZ_SYSTEM_LIBDAV1D_CFLAGS']
+         CFLAGS += CONFIG['MOZ_SYSTEM_LIBAOM_CFLAGS']
+@@ -139,6 +155,7 @@ if not CONFIG['MOZ_FFVPX_AUDIOONLY']:
+         SOURCES += [
+             'vaapi_av1.c',
+             'vaapi_decode.c',
++            'vaapi_hevc.c',
+             'vaapi_vp8.c',
+             'vaapi_vp9.c',
+         ]
+diff --git a/media/ffvpx/libavcodec/x86/moz.build b/media/ffvpx/libavcodec/x86/moz.build
+index d3d481ee02..ab4ca70cf1 100644
+--- a/media/ffvpx/libavcodec/x86/moz.build
++++ b/media/ffvpx/libavcodec/x86/moz.build
+@@ -35,6 +35,23 @@ SOURCES += [
+     'vp9mc_16bpp.asm',
+ ]
+ 
++if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
++    # HEVC decoder
++    SOURCES += [
++        'bswapdsp.asm',
++        'bswapdsp_init.c',
++        'h26x/h2656_inter.asm',
++        'h26x/h2656dsp.c',
++        'hevc/add_res.asm',
++        'hevc/deblock.asm',
++        'hevc/dequant.asm',
++        'hevc/dsp_init.c',
++        'hevc/idct.asm',
++        'hevc/mc.asm',
++        'hevc/sao.asm',
++        'hevc/sao_10bit.asm',
++    ]
++
+ LOCAL_INCLUDES += [ "../" ]
+ 
+ if CONFIG['TARGET_CPU'] == 'x86':
+diff --git a/media/ffvpx/libavutil/avutil.symbols b/media/ffvpx/libavutil/avutil.symbols
+index b5d7c8e5d9..15c867ba9c 100644
+--- a/media/ffvpx/libavutil/avutil.symbols
++++ b/media/ffvpx/libavutil/avutil.symbols
+@@ -330,3 +330,29 @@ av_get_sample_fmt_name
+ av_tx_uninit
+ av_tx_init
+ av_channel_layout_describe_bprint
++#ifndef MOZ_FFVPX_AUDIOONLY
++#ifndef MOZ_WIDGET_ANDROID
++av_ambient_viewing_environment_alloc
++av_container_fifo_alloc_avframe
++av_container_fifo_can_read
++av_container_fifo_free
++av_container_fifo_read
++av_container_fifo_write
++av_display_matrix_flip
++av_display_rotation_set
++av_dynamic_hdr_plus_alloc
++av_dynamic_hdr_vivid_alloc
++av_film_grain_params_alloc
++av_film_grain_params_select
++av_log_once
++av_md5_alloc
++av_md5_final
++av_md5_init
++av_md5_update
++av_refstruct_ref_c
++av_stereo3d_create_side_data
++av_tdrdi_alloc
++av_timecode_get_smpte
++av_timecode_make_smpte_tc_string2
++#endif
++#endif
+diff --git a/media/ffvpx/libavutil/moz.build b/media/ffvpx/libavutil/moz.build
+index 4174ec4cb3..59cad54e28 100644
+--- a/media/ffvpx/libavutil/moz.build
++++ b/media/ffvpx/libavutil/moz.build
+@@ -70,6 +70,16 @@ if not CONFIG['MOZ_FFVPX_AUDIOONLY']:
+         'timecode.c',
+         'video_enc_params.c'
+     ]
++    if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
++        # Needed by the HEVC decoder.
++        SOURCES += [
++            'ambient_viewing_environment.c',
++            'display.c',
++            'hdr_dynamic_vivid_metadata.c',
++            'md5.c',
++            'stereo3d.c',
++            'tdrdi.c',
++        ]
+     if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk":
+         LOCAL_INCLUDES += ['/media/mozva']
+         SOURCES += [
+diff --git a/media/mozva/va/va.h b/media/mozva/va/va.h
+index ca5a000ab8..b43e56ef9b 100644
+--- a/media/mozva/va/va.h
++++ b/media/mozva/va/va.h
+@@ -5179,7 +5179,7 @@ typedef union _VACopyOption {
+  */
+ VAStatus vaCopy(VADisplay dpy, VACopyObject * dst, VACopyObject * src, VACopyOption option);
+ 
+-//#include <va/va_dec_hevc.h>
++#include <va/va_dec_hevc.h>
+ //#include <va/va_dec_jpeg.h>
+ #include <va/va_dec_vp8.h>
+ #include <va/va_dec_vp9.h>

@@ -25,6 +25,11 @@ if [ "$(git -C "$GECKO_DIR" rev-parse HEAD)" != "$GECKO_COMMIT" ]; then
   exit 1
 fi
 
+# Sources ajoutées à Gecko telles quelles (décodeur HEVC de FFmpeg pour ffvpx,
+# en-tête VA-API HEVC). Voir vendor/README.md.
+cp -R "$CORE_DIR/vendor/ffvpx/." "$GECKO_DIR/media/ffvpx/"
+cp -R "$CORE_DIR/vendor/mozva/." "$GECKO_DIR/media/mozva/"
+
 # Petits correctifs de Gecko pour qu'il reconnaisse le projet "core".
 # On les garde au strict minimum : chacun est à reporter à chaque montée d'ESR.
 for patch in "$CORE_DIR"/patches/*.patch; do
