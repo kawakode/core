@@ -93,7 +93,7 @@ faut un runner auto-hébergé, déclaré dans les variables du dépôt :
 | `CORE_RUNNER` | Labels du runner en JSON, par exemple `["self-hosted","linux","core"]` |
 | `CORE_PGO` | `true` pour construire les tags avec PGO |
 
-Sur un runner auto-hébergé, `mach bootstrap`, Xvfb, `msitools` et `wine`
+Sur un runner auto-hébergé, `mach bootstrap`, Xvfb, `msitools`, `wine` et `libc6:i386`
 doivent déjà être installés.
 
 ## Organisation
