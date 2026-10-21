@@ -1,5 +1,5 @@
-# Core
-
+# Core 
+[![Release](https://github.com/kawakode/core/actions/workflows/release.yml/badge.svg?branch=main&event=workflow_run)](https://github.com/kawakode/core/actions/workflows/release.yml)
 Un navigateur minimal autour de Gecko, le moteur de Firefox : pas un fork de
 Firefox, mais un projet Gecko à part (`--enable-project=core`), comme
 Thunderbird. Il réutilise `toolkit/` et n'embarque rien de `browser/`.
