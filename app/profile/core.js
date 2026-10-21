@@ -74,6 +74,27 @@ pref("media.peerconnection.mtransport_process", true);
 pref("extensions.webextensions.remote", true);
 pref("extensions.startupScanScopes", 0);
 
+// Extensions d'addons.mozilla.org : signature obligatoire, installation
+// autorisée depuis AMO sans question (permission « install » de
+// defaults/permissions), mises à jour vérifiées chaque jour auprès d'AMO.
+// Valeurs de browser/app/profile/firefox.js.
+pref("xpinstall.signatures.required", true);
+pref("extensions.langpacks.signatures.required", true);
+pref("permissions.manager.defaultsUrl", "resource://app/defaults/permissions");
+pref("extensions.webextOptionalPermissionPrompts", true);
+pref("extensions.postDownloadThirdPartyPrompt", true);
+pref("extensions.update.autoUpdateDefault", true);
+pref("extensions.update.url", "https://versioncheck.addons.mozilla.org/update/VersionCheck.php?reqVersion=%REQ_VERSION%&id=%ITEM_ID%&version=%ITEM_VERSION%&maxAppVersion=%ITEM_MAXAPPVERSION%&status=%ITEM_STATUS%&appID=%APP_ID%&appVersion=%APP_VERSION%&appOS=%APP_OS%&appABI=%APP_ABI%&locale=%APP_LOCALE%&currentAppVersion=%CURRENT_APP_VERSION%&updateType=%UPDATE_TYPE%&compatMode=%COMPATIBILITY_MODE%");
+pref("extensions.update.background.url", "https://versioncheck-bg.addons.mozilla.org/update/VersionCheck.php?reqVersion=%REQ_VERSION%&id=%ITEM_ID%&version=%ITEM_VERSION%&maxAppVersion=%ITEM_MAXAPPVERSION%&status=%ITEM_STATUS%&appID=%APP_ID%&appVersion=%APP_VERSION%&appOS=%APP_OS%&appABI=%APP_ABI%&locale=%APP_LOCALE%&currentAppVersion=%CURRENT_APP_VERSION%&updateType=%UPDATE_TYPE%&compatMode=%COMPATIBILITY_MODE%");
+pref("extensions.update.interval", 86400);
+// about:addons (Ctrl+Maj+A) : ni recommandations ni données téléchargées
+// d'AMO ; seul le lien « Trouver d'autres extensions » y mène.
+pref("extensions.htmlaboutaddons.recommendations.enabled", false);
+pref("extensions.getAddons.showPane", false);
+pref("extensions.getAddons.cache.enabled", false);
+pref("extensions.getAddons.link.url", "https://addons.mozilla.org/%LOCALE%/firefox/");
+pref("extensions.getAddons.search.browseURL", "https://addons.mozilla.org/%LOCALE%/firefox/search?q=%TERMS%&platform=%OS%&appver=%VERSION%");
+
 // Aucune fonction d'IA dans Core (décision du 18/10/2026).
 pref("browser.ml.enable", false);
 

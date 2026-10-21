@@ -57,6 +57,7 @@ ajoutant `msvcp140.dll`, `vcruntime140.dll` et `vcruntime140_1.dll` de
 | `app/` | Lanceur natif (`nsCoreApp.cpp`, dérivé de celui de Firefox) et préférences par défaut |
 | `base/content/` | Interface : fenêtre, barre d'adresse, onglets |
 | `branding/` | Nom et icônes |
+| `extensions/` | API d'extensions liées à l'interface (onglets, fenêtres, boutons d'extension), l'équivalent de `browser/components/extensions/` de Firefox |
 | `GECKO_TAG`, `GECKO_COMMIT` | Version de Gecko utilisée (ESR) et son commit, vérifié par `bootstrap.sh` |
 | `patches/`, `vendor/` | Correctifs de Gecko et sources tierces que `bootstrap.sh` y ajoute (dont le décodeur H.265/HEVC de FFmpeg, voir `vendor/README.md`) |
 | `securite/` | Contrôles de sécurité des dépendances (voir plus bas) |

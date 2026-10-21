@@ -9,6 +9,7 @@ EXTRA_COMPONENTS += [
 DIRS += [
     "base",
     "components",
+    "extensions",
     "modules",
     "app",
 ]
@@ -24,4 +25,9 @@ DEFINES["APP_VERSION"] = CONFIG["MOZ_APP_VERSION"]
 # Déclaré ici pour hériter de DIST_SUBDIR, qui est remis à zéro dans app/.
 JS_PREFERENCE_PP_FILES += [
     "app/profile/core.js",
+]
+
+# Permissions par défaut : addons.mozilla.org peut installer des extensions.
+FINAL_TARGET_FILES.defaults += [
+    "app/permissions",
 ]

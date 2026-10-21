@@ -1,0 +1,5 @@
+# Permissions par défaut de Core (voir browser/app/permissions pour Firefox),
+# lues depuis permissions.manager.defaultsUrl.
+# Format : origin <TAB> type <TAB> permission <TAB> origine
+
+origin	install	1	https://addons.mozilla.org

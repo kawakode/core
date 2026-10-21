@@ -46,16 +46,21 @@
             aria-label="Recharger"></button>
     <input id="urlbar" type="text" placeholder="Adresse ou recherche"
            spellcheck="false" autocomplete="off" />
+    <!-- Boutons des extensions (browser_action / action). -->
+    <div id="extension-buttons"></div>
     <button id="menu-button" class="icon-button" title="Menu"
             aria-label="Menu" aria-haspopup="menu"></button>
   </div>
   <xul:menupopup id="app-menu">
     <xul:menuitem id="menu-newtab" label="Nouvel onglet" acceltext="Ctrl+T" />
     <xul:menuseparator />
+    <xul:menuitem id="menu-addons" label="Extensions" acceltext="Ctrl+Maj+A" />
     <xul:menuitem id="menu-settings" label="Réglages" />
     <xul:menuseparator />
     <xul:menuitem id="menu-quit" label="Quitter" acceltext="Ctrl+Q" />
   </xul:menupopup>
   <xul:stack id="browsers" flex="1"></xul:stack>
+  <!-- Panneaux des extensions (fenêtres surgissantes des boutons). -->
+  <xul:popupset id="mainPopupSet"></xul:popupset>
 </body>
 </html>
