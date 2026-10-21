@@ -45,7 +45,12 @@ sudo mkswap "$base/swapfile" > /dev/null
 sudo swapon "$base/swapfile"
 
 paquets=()
-[ "$cible" = win64 ] && paquets+=(msitools)
+# Le Wine de ~/.mozbuild, qui lance midl.exe pendant le build Windows, est
+# en 32 bits : il lui faut le chargeur i386 (/lib/ld-linux.so.2).
+if [ "$cible" = win64 ]; then
+  sudo dpkg --add-architecture i386
+  paquets+=(msitools libc6:i386)
+fi
 [ "$pgo" = true ] && paquets+=(xvfb)
 [ "$cible" = win64 ] && [ "$pgo" = true ] && paquets+=(wine)
 if [ ${#paquets[@]} -gt 0 ]; then
