@@ -25,7 +25,8 @@ from marionette import Marionette
 
 
 def index_without_quitter(request):
-    with open("/root/gecko/build/pgo/index.html") as f:
+    topsrcdir = MozbuildObject.from_environment().topsrcdir
+    with open(os.path.join(topsrcdir, "build", "pgo", "index.html")) as f:
         body = f.read().replace("Quitter.quit();", 'location.href = "quit.html";')
     return (200, {"Content-Type": "text/html"}, body)
 
@@ -38,7 +39,12 @@ def quit_on_quit_page(httpd):
     def watch():
         while not any("quit.html" in r["path"] for r in httpd.request_log[seen:]):
             time.sleep(1)
-        m = Marionette(timeout=60)
+        while True:
+            try:
+                m = Marionette(port=MARIONETTE_PORT, timeout=60)
+                break
+            except Exception as e:
+                print("Marionette injoignable (%s), nouvel essai" % e)
         try:
             m.cmd("Marionette:Quit", {"flags": ["eAttemptQuit"]})
         except Exception:
@@ -47,6 +53,8 @@ def quit_on_quit_page(httpd):
     threading.Thread(target=watch, daemon=True).start()
 
 PORT = 8888
+# Port Marionette réglable : un autre Core lancé sur la machine peut occuper 2828.
+MARIONETTE_PORT = int(os.environ.get("CORE_MARIONETTE_PORT", "2828"))
 
 PATH_MAPPINGS = {
     "/webkit/PerformanceTests": "third_party/webkit/PerformanceTests",
@@ -124,6 +132,11 @@ if __name__ == "__main__":
             sys.exit(1)
     binary = os.path.normpath(os.path.abspath(binary))
 
+    # Build Windows profilé depuis Linux : on lance core.exe sous Wine.
+    WINE = binary.endswith(".exe") and sys.platform != "win32"
+    if WINE:
+        binary = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wine-core.sh")
+
     extended_corpus_dir = cli.extended_corpus_dir()
     has_extended_corpus = extended_corpus_dir is not None
 
@@ -188,7 +201,13 @@ if __name__ == "__main__":
         prefs = {}
         for path in prefpaths:
             prefs.update(Preferences.read_prefs(path))
-        prefs["marionette.port"] = 2828
+        prefs["marionette.port"] = MARIONETTE_PORT
+        if WINE:
+            # Sous Wine, D3D11 plante (processus GPU) ou bloque la fermeture,
+            # et le profil n'est alors pas écrit : rendu WebRender logiciel
+            # dans le processus principal.
+            prefs["layers.acceleration.disabled"] = True
+            prefs["layers.gpu-process.enabled"] = False
 
         interpolation = {"server": "%s:%d" % httpd.httpd.server_address}
         sp3_interpolation = {"server": "%s:%d" % sp3_httpd.httpd.server_address}

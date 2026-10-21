@@ -1,0 +1,5 @@
+; Wine n'a pas CRYPTBASE.dll, que mozglue.dll importe (RtlGenRandom).
+; Ce substitut renvoie vers advapi32, qui l'implémente.
+LIBRARY CRYPTBASE
+EXPORTS
+  SystemFunction036=advapi32.SystemFunction036

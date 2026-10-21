@@ -44,8 +44,23 @@ Il faut `msiextract` (paquet `msitools`) et la std Rust de la cible
 MOZCONFIG=$PWD/core/mozconfigs/win64-cross ./mach build
 ```
 
+### Build Windows optimisé par profil (PGO + LTO)
+
+Même recette que sous Linux, toujours depuis Linux : le build instrumenté
+`core.exe` est profilé sous Wine (Speedometer 3 et tests de `build/pgo`), avec
+le rendu WebRender logiciel, puis le build final est compilé avec LTO croisé.
+Il faut `wine` en plus de `msitools`.
+
+```sh
+Xvfb :99 & DISPLAY=:99 core/scripts/pgo/build-win64.sh
+```
+
+Le résultat est dans `obj-core-win64-pgo/dist/bin`. Le profilage utilise un
+préfixe Wine dédié (`obj-core-win64-instr/wineprefix`) ; si un autre Core
+tourne déjà avec Marionette sur le port 2828, fixer `CORE_MARIONETTE_PORT`.
+
 Il n'y a pas encore d'installeur ni de `mach package` : le zip portable se
-fait à partir de `obj-core-win64/dist/bin` (copié avec `cp -rL`), en y
+fait à partir de `obj-core-win64/dist/bin` ou `obj-core-win64-pgo/dist/bin` (copié avec `cp -rL`), en y
 ajoutant `msvcp140.dll`, `vcruntime140.dll` et `vcruntime140_1.dll` de
 `~/.mozbuild/vs/VC/Redist/MSVC/*/x64/`.
 

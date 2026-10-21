@@ -1,0 +1,18 @@
+# Passe 2 du PGO Windows : build de distribution optimisé par le profil
+# recueilli sous Wine, LTO croisé C++/Rust (voir scripts/pgo/build-win64.sh).
+# Pas de jarlog : le build instrumenté n'est pas empaqueté (omni.ja), il
+# resterait vide.
+ac_add_options --enable-project=core
+ac_add_options --target=x86_64-pc-windows-msvc
+ac_add_options --enable-bootstrap
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-core-win64-pgo
+
+ac_add_options --enable-release
+ac_add_options --disable-debug
+ac_add_options --enable-optimize
+ac_add_options --disable-tests
+ac_add_options --enable-lto=cross
+ac_add_options --enable-profile-use=cross
+ac_add_options --with-pgo-profile-path=$topsrcdir/obj-core-win64-instr/merged.profdata
+
+. "$topsrcdir/core/mozconfigs/common"

@@ -1,0 +1,14 @@
+# Passe 1 du PGO Windows : build instrumenté, compilé depuis Linux (clang-cl).
+# Le profilage tourne sous Wine (voir scripts/pgo/build-win64.sh).
+ac_add_options --enable-project=core
+ac_add_options --target=x86_64-pc-windows-msvc
+ac_add_options --enable-bootstrap
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-core-win64-instr
+
+ac_add_options --enable-release
+ac_add_options --disable-debug
+ac_add_options --enable-optimize
+ac_add_options --disable-tests
+ac_add_options --enable-profile-generate=cross
+
+. "$topsrcdir/core/mozconfigs/common"

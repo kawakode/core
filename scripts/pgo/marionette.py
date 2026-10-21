@@ -7,25 +7,34 @@ class Marionette:
         while True:
             try:
                 self.s = socket.create_connection(("127.0.0.1", port), timeout=5)
+                # Sous Wine, la poignée de main reste parfois sans réponse :
+                # on se reconnecte.
+                self.s.settimeout(10)
+                self.buf = b""
+                self._recv()  # handshake
                 break
-            except OSError:
+            except (OSError, ValueError):
                 if time.time() > end:
                     raise
                 time.sleep(0.5)
         self.s.settimeout(None)
-        self.buf = b""
-        self._recv()  # handshake
         self.id = 0
         self.cmd("WebDriver:NewSession", {"capabilities": {"alwaysMatch": {"pageLoadStrategy": "normal"}}})
         self.cmd("WebDriver:SetTimeouts", {"script": 3600000, "pageLoad": 120000})
 
+    def _read(self):
+        data = self.s.recv(65536)
+        if not data:
+            raise ConnectionError("connexion Marionette fermée")
+        return data
+
     def _recv(self):
         while b":" not in self.buf:
-            self.buf += self.s.recv(65536)
+            self.buf += self._read()
         n, rest = self.buf.split(b":", 1)
         n = int(n)
         while len(rest) < n:
-            rest += self.s.recv(65536)
+            rest += self._read()
         self.buf = rest[n:]
         return json.loads(rest[:n])
 
