@@ -1,0 +1,128 @@
+# Construit Core pour Linux et Windows, puis publie une release GitHub avec
+# les archives quand un tag v* est poussé (v153.5.0, v153.5.0-2… ; un suffixe
+# avec des lettres, comme v153.6.0-beta1, donne une pré-version).
+#
+# Lancement manuel depuis l'onglet Actions (« Run workflow ») : build seul,
+# archives téléchargeables depuis le run. Pour publier (ou republier après
+# un échec), choisir un tag comme ref et cocher « publier ».
+#
+# Runners : par défaut ceux de GitHub (4 cœurs, 16 Go, 6 h au plus par job),
+# assez pour un build LTO sans PGO. Le PGO (deux builds et un profilage)
+# dépasse ces 6 h : il lui faut un runner auto-hébergé, désigné par la
+# variable de dépôt CORE_RUNNER (par exemple ["self-hosted","linux","core"]),
+# et CORE_PGO=true pour l'activer sur les tags.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      cibles:
+        description: Plateformes à construire
+        type: choice
+        options: [toutes, linux, win64]
+        default: toutes
+      pgo:
+        description: Optimisation par profil (PGO), runner auto-hébergé conseillé
+        type: boolean
+        default: false
+      publier:
+        description: Publier la release (seulement si la ref choisie est un tag)
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.cible }}
+    runs-on: ${{ fromJSON(vars.CORE_RUNNER || '"ubuntu-24.04"') }}
+    # Les runners de GitHub s'arrêtent de toute façon à 6 h.
+    timeout-minutes: 1440
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        cible: ${{ fromJSON((inputs.cibles == 'linux' && '["linux"]') || (inputs.cibles == 'win64' && '["win64"]') || '["linux","win64"]') }}
+    env:
+      CIBLE: ${{ matrix.cible }}
+      PGO: ${{ (github.event_name == 'push' && vars.CORE_PGO == 'true') || inputs.pgo == true }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Préparer la machine
+        run: scripts/release/preparer.sh "$CIBLE" "$PGO"
+
+      - name: Récupérer Gecko
+        run: scripts/bootstrap.sh "$GECKO_DIR"
+
+      - name: Installer les outils de build de Mozilla
+        if: runner.environment == 'github-hosted'
+        working-directory: ${{ env.GECKO_DIR }}
+        run: ./mach --no-interactive bootstrap --application-choice "Firefox for Desktop"
+
+      - name: Construire
+        working-directory: ${{ env.GECKO_DIR }}
+        run: |
+          if [ "$PGO" = true ]; then
+            Xvfb :99 -screen 0 1920x1080x24 &
+            export DISPLAY=:99
+          fi
+          core/scripts/release/construire.sh "$CIBLE" "$PGO"
+
+      - name: Empaqueter
+        working-directory: ${{ env.GECKO_DIR }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version=${GITHUB_REF_NAME#v}
+          else
+            version=dev-${GITHUB_SHA::7}
+          fi
+          core/scripts/release/empaqueter.sh "$CIBLE" "$PGO" "$version" "$RUNNER_TEMP/paquets"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: core-${{ matrix.cible }}
+          path: ${{ runner.temp }}/paquets/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+  publier:
+    name: Publier la release
+    needs: build
+    if: github.ref_type == 'tag' && (github.event_name == 'push' || inputs.publier)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: core-*
+          merge-multiple: true
+          path: paquets
+
+      - name: Créer la release et y joindre les archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cd paquets
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload --clobber "$TAG" -- *
+          else
+            options=()
+            case "$TAG" in v*-*[a-z]*) options+=(--prerelease) ;; esac
+            gh release create "$TAG" --verify-tag --title "Core ${TAG#v}" --generate-notes "${options[@]}" -- *
+          fi
