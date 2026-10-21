@@ -64,6 +64,37 @@ fait à partir de `obj-core-win64/dist/bin` ou `obj-core-win64-pgo/dist/bin` (co
 ajoutant `msvcp140.dll`, `vcruntime140.dll` et `vcruntime140_1.dll` de
 `~/.mozbuild/vs/VC/Redist/MSVC/*/x64/`.
 
+## Releases
+
+`.github/workflows/release.yml` construit Core pour Linux et Windows et publie
+une release GitHub quand un tag `v*` est poussé :
+
+```sh
+git tag v153.5.0 && git push origin v153.5.0
+```
+
+La release contient `core-<version>-linux-x86_64.tar.xz`,
+`core-<version>-win64.zip` et `SHA256SUMS`. Un suffixe avec des lettres
+(`v153.6.0-beta1`) donne une pré-version ; `v153.5.0-2` une nouvelle release
+de la même version de Gecko.
+
+Le workflow se lance aussi à la main (onglet Actions, « Run workflow ») :
+choix des plateformes et du PGO, archives téléchargeables depuis le run. En
+choisissant un tag comme ref et en cochant « publier », il (re)publie la
+release de ce tag.
+
+Par défaut le build tourne sur les runners de GitHub (4 cœurs, 16 Go, 6 h au
+plus par job) : build LTO sans PGO. Le PGO dépasse ces 6 h ; il
+faut un runner auto-hébergé, déclaré dans les variables du dépôt :
+
+| Variable | Rôle |
+|---|---|
+| `CORE_RUNNER` | Labels du runner en JSON, par exemple `["self-hosted","linux","core"]` |
+| `CORE_PGO` | `true` pour construire les tags avec PGO |
+
+Sur un runner auto-hébergé, `mach bootstrap`, Xvfb, `msitools` et `wine`
+doivent déjà être installés.
+
 ## Organisation
 
 | Chemin | Rôle |

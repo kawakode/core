@@ -1,0 +1,14 @@
+# Build de distribution Windows x86_64 compilé depuis Linux : LTO, sans PGO.
+# Pour le PGO, voir scripts/pgo/build-win64.sh.
+ac_add_options --enable-project=core
+ac_add_options --target=x86_64-pc-windows-msvc
+ac_add_options --enable-bootstrap
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-core-win64-release
+
+ac_add_options --enable-release
+ac_add_options --disable-debug
+ac_add_options --enable-optimize
+ac_add_options --enable-lto
+ac_add_options --disable-tests
+
+. "$topsrcdir/core/mozconfigs/common"
