@@ -11,6 +11,10 @@ ac_add_options --enable-release
 ac_add_options --disable-debug
 ac_add_options --enable-optimize
 ac_add_options --disable-tests
+# Sans symboles de débogage : rustc garde sinon toute la debuginfo de gkrust
+# en mémoire pendant son LTO, et le build a dépassé 32 Go. Core n'a ni
+# crashreporter ni serveur de symboles pour s'en servir.
+ac_add_options --disable-debug-symbols
 ac_add_options --enable-lto=cross
 ac_add_options --enable-profile-use=cross
 ac_add_options --with-pgo-profile-path=$topsrcdir/obj-core-win64-instr/merged.profdata
