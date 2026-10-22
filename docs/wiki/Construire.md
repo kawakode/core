@@ -125,6 +125,16 @@ runner auto-hébergé, déclaré dans les variables du dépôt :
 Sur un runner auto-hébergé, `mach bootstrap`, Xvfb, `msitools`, `wine` et
 `libc6:i386` doivent déjà être installés.
 
+Sous systemd, un processus tué par l'OOM killer arrête tout le service du
+runner (`OOMPolicy=stop` par défaut), et le job est perdu sans journal. Avec
+`OOMPolicy=continue`, seul le build échoue :
+
+```sh
+d=/etc/systemd/system/actions.runner.<dépôt>.<runner>.service.d
+mkdir -p $d && printf '[Service]\nOOMPolicy=continue\n' > $d/oom.conf
+systemctl daemon-reload && systemctl restart actions.runner.<dépôt>.<runner>.service
+```
+
 ## macOS
 
 Pas encore fait. Mozilla compile macOS par compilation croisée depuis Linux ;
