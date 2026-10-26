@@ -13,3 +13,8 @@ core.jar:
   content/core/settings.xhtml  (content/settings.xhtml)
   content/core/settings.js     (content/settings.js)
   content/core/settings.css    (content/settings.css)
+  content/core/bookmarks.js    (content/bookmarks.js)
+  content/core/bookmarks-ui.css  (content/bookmarks-ui.css)
+  content/core/bookmarks-manager.xhtml  (content/bookmarks-manager.xhtml)
+  content/core/bookmarks-manager.js     (content/bookmarks-manager.js)
+  content/core/bookmarks-manager.css    (content/bookmarks-manager.css)

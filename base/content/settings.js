@@ -4,8 +4,8 @@
 
 "use strict";
 
-// Fenêtre de réglages : sandbox des processus de contenu, barre de titre et
-// réponse par défaut aux certificats invalides.
+// Fenêtre de réglages : sandbox des processus de contenu, barre de titre,
+// barre de marque-pages et réponse par défaut aux certificats invalides.
 
 const SANDBOX_PREF = "security.sandbox.content.level";
 
@@ -93,12 +93,29 @@ const gTitlebar = {
   },
 };
 
+// Barre de marque-pages (base/content/bookmarks.js suit la préférence).
+const gBookmarksToolbar = {
+  PREF: "core.bookmarks.toolbar",
+
+  init() {
+    let checkbox = document.getElementById("bookmarks-toolbar");
+    let update = () => (checkbox.checked = Services.prefs.getBoolPref(this.PREF, false));
+    update();
+    checkbox.addEventListener("change", () =>
+      Services.prefs.setBoolPref(this.PREF, checkbox.checked)
+    );
+    Services.prefs.addObserver(this.PREF, update);
+    window.addEventListener("unload", () => Services.prefs.removeObserver(this.PREF, update));
+  },
+};
+
 window.addEventListener(
   "load",
   () => {
     gSandbox.init();
     gTitlebar.init();
     gCertError.init();
+    gBookmarksToolbar.init();
     document.getElementById("restart").addEventListener("click", () => {
       Services.startup.quit(
         Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart

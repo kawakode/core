@@ -523,6 +523,12 @@ function onKeyDown(event) {
     gTabs.open(null);
   } else if (accel && event.shiftKey && event.key.toLowerCase() == "a") {
     BrowserAddonUI.openAddonsMgr();
+  } else if (accel && event.shiftKey && event.key.toLowerCase() == "b") {
+    gBookmarks.toggleBar();
+  } else if (accel && (event.key == "b" || (event.shiftKey && event.key.toLowerCase() == "o"))) {
+    gBookmarks.openManager();
+  } else if (accel && event.key == "d") {
+    gBookmarks.editCurrentPage();
   } else if (accel && event.key == "q") {
     quit();
   } else if (accel && event.key == "w") {
@@ -690,6 +696,7 @@ window.addEventListener(
 
     gToolbar.init();
     gTitlebar.init();
+    gBookmarks.init();
     window.addEventListener("keydown", onKeyDown, true);
 
     // window.close() d'une page (fenêtres surgissantes, connexions OAuth) :

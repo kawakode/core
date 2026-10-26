@@ -5,6 +5,7 @@
 EXTRA_JS_MODULES += [
     "BrowserWindowTracker.sys.mjs",
     "BuiltInThemes.sys.mjs",
+    "CoreBookmarks.sys.mjs",
     "CoreCertErrorChild.sys.mjs",
     "ExtensionsUI.sys.mjs",
     "HomePage.sys.mjs",

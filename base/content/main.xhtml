@@ -17,8 +17,10 @@
   <link rel="stylesheet" href="chrome://global/skin/global.css" />
   <link rel="stylesheet" href="chrome://core/content/tokens.css" />
   <link rel="stylesheet" href="chrome://core/content/main.css" />
+  <link rel="stylesheet" href="chrome://core/content/bookmarks-ui.css" />
   <script src="chrome://global/content/customElements.js"></script>
   <script src="chrome://core/content/main.js"></script>
+  <script src="chrome://core/content/bookmarks.js"></script>
 </head>
 <body>
   <!-- Barre de titre : onglets, puis les boutons de la fenêtre quand Core
@@ -46,6 +48,8 @@
             aria-label="Recharger"></button>
     <input id="urlbar" type="text" placeholder="Adresse ou recherche"
            spellcheck="false" autocomplete="off" />
+    <button id="bookmark-star" class="icon-button" title="Marquer cette page (Ctrl+D)"
+            aria-label="Marquer cette page" hidden="true"></button>
     <!-- Boutons des extensions (browser_action / action). -->
     <div id="extension-buttons"></div>
     <button id="menu-button" class="icon-button" title="Menu"
@@ -53,12 +57,49 @@
   </div>
   <xul:menupopup id="app-menu">
     <xul:menuitem id="menu-newtab" label="Nouvel onglet" acceltext="Ctrl+T" />
+    <xul:menu id="menu-bookmarks" label="Marque-pages">
+      <xul:menupopup id="bookmarks-menu-popup">
+        <xul:menuitem id="menu-bookmark-page" label="Marquer cette page" acceltext="Ctrl+D" />
+        <xul:menuitem id="menu-bookmarks-manager" label="Gérer les marque-pages"
+                      acceltext="Ctrl+Maj+O" />
+        <xul:menuitem id="menu-bookmarks-toolbar" type="checkbox"
+                      label="Barre de marque-pages" acceltext="Ctrl+Maj+B" />
+        <xul:menuseparator id="bookmarks-menu-start" />
+      </xul:menupopup>
+    </xul:menu>
     <xul:menuseparator />
     <xul:menuitem id="menu-addons" label="Extensions" acceltext="Ctrl+Maj+A" />
     <xul:menuitem id="menu-settings" label="Réglages" />
     <xul:menuseparator />
     <xul:menuitem id="menu-quit" label="Quitter" acceltext="Ctrl+Q" />
   </xul:menupopup>
+  <!-- Barre de marque-pages, masquée par défaut (Ctrl+Maj+B). -->
+  <div id="bookmarks-bar" role="toolbar" aria-label="Barre de marque-pages"
+       hidden="true"></div>
+  <xul:menupopup id="bookmarks-bar-popup" class="bookmarks-popup" />
+  <xul:menupopup id="bookmark-context" class="bookmarks-popup">
+    <xul:menuitem id="bookmark-context-open" label="Ouvrir dans un nouvel onglet" />
+    <xul:menuitem id="bookmark-context-edit" label="Modifier…" />
+    <xul:menuitem id="bookmark-context-remove" label="Supprimer" />
+  </xul:menupopup>
+  <!-- Panneau de l'étoile : nom, adresse et dossier du marque-page. -->
+  <xul:panel id="bookmark-panel" role="dialog" aria-labelledby="bookmark-panel-title">
+    <div id="bookmark-panel-body">
+      <h2 id="bookmark-panel-title">Marque-page ajouté</h2>
+      <label for="bookmark-name">Nom</label>
+      <input id="bookmark-name" type="text" />
+      <label for="bookmark-url">Adresse</label>
+      <input id="bookmark-url" type="text" spellcheck="false" />
+      <label>Dossier</label>
+      <xul:menulist id="bookmark-folder" aria-label="Dossier">
+        <xul:menupopup class="bookmarks-popup" />
+      </xul:menulist>
+      <div id="bookmark-panel-buttons">
+        <button id="bookmark-remove">Supprimer</button>
+        <button id="bookmark-done" class="primary">Terminé</button>
+      </div>
+    </div>
+  </xul:panel>
   <xul:stack id="browsers" flex="1"></xul:stack>
   <!-- Panneaux des extensions (fenêtres surgissantes des boutons). -->
   <xul:popupset id="mainPopupSet"></xul:popupset>

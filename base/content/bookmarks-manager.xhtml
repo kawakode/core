@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+
+<!-- Gestionnaire de marque-pages (about:bookmarks), chargé dans le
+     processus principal comme about:addons. -->
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+<head>
+  <meta http-equiv="Content-Security-Policy"
+        content="script-src chrome: resource:; object-src 'none';" />
+  <title>Marque-pages</title>
+  <link rel="stylesheet" href="chrome://global/skin/global.css" />
+  <link rel="stylesheet" href="chrome://core/content/tokens.css" />
+  <link rel="stylesheet" href="chrome://core/content/bookmarks-manager.css" />
+  <script src="chrome://global/content/customElements.js"></script>
+  <script src="chrome://core/content/bookmarks-manager.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Marque-pages</h1>
+    <input id="search" type="search" placeholder="Rechercher"
+           aria-label="Rechercher dans les marque-pages" />
+    <button id="new-folder">Nouveau dossier</button>
+    <button id="new-separator">Séparateur</button>
+    <button id="import">Importer…</button>
+    <button id="export">Exporter…</button>
+  </header>
+  <p id="status" role="status"></p>
+  <main>
+    <nav id="folders" role="tree" aria-label="Dossiers"></nav>
+    <section id="content">
+      <h2 id="content-title"></h2>
+      <ul id="items" role="listbox" aria-labelledby="content-title" tabindex="0"></ul>
+      <p id="empty" hidden="true"></p>
+      <div id="details" hidden="true">
+        <label for="detail-name">Nom</label>
+        <input id="detail-name" type="text" />
+        <label for="detail-url" class="bookmark-only">Adresse</label>
+        <input id="detail-url" class="bookmark-only" type="text" spellcheck="false" />
+        <label>Dossier</label>
+        <xul:menulist id="detail-folder" aria-label="Dossier">
+          <xul:menupopup />
+        </xul:menulist>
+        <div id="detail-buttons">
+          <button id="detail-open" class="bookmark-only">Ouvrir</button>
+          <button id="detail-remove">Supprimer</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
