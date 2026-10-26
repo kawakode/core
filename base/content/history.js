@@ -70,8 +70,16 @@ const gHistory = {
       PlacesUtils.observers.removeListener(types, this.listener)
     );
 
-    document.getElementById("disabled-note").hidden =
-      Services.prefs.getBoolPref("places.history.enabled", true);
+    // Note affichée tant que l'enregistrement est coupé dans les Réglages.
+    let updateNote = () => {
+      document.getElementById("disabled-note").hidden =
+        Services.prefs.getBoolPref("places.history.enabled", true);
+    };
+    updateNote();
+    Services.prefs.addObserver("places.history.enabled", updateNote);
+    window.addEventListener("unload", () =>
+      Services.prefs.removeObserver("places.history.enabled", updateNote)
+    );
     this.reload();
   },
 
@@ -112,7 +120,8 @@ const gHistory = {
     let params = { offset, limit };
     if (this.query) {
       where = "AND (url LIKE :q ESCAPE '/' OR title LIKE :q ESCAPE '/')";
-      params.q = `%${db.escapeStringForLIKE(this.query, "/")}%`;
+      // escapeStringForLIKE n'existe que sur les requêtes, pas sur la connexion.
+      params.q = `%${this.query.replace(/[/%_]/g, "/$&")}%`;
     }
     let rows = await db.executeCached(
       `SELECT url, title, last_visit_date FROM moz_places
@@ -194,8 +203,15 @@ const gHistory = {
 
   // La ligne disparaît tout de suite ; le focus passe à la suivante.
   remove(entry) {
-    let next = entry.nextElementSibling?.closest(".entry") ??
-      entry.previousElementSibling?.closest(".entry");
+    // Ligne voisine, en sautant les titres de jour.
+    let sibling = direction => {
+      let node = entry[direction];
+      while (node && !node.classList.contains("entry")) {
+        node = node[direction];
+      }
+      return node;
+    };
+    let next = sibling("nextElementSibling") ?? sibling("previousElementSibling");
     this.removeRow(entry);
     next?.focus();
     PlacesUtils.history.remove(entry.dataset.url).catch(console.error);

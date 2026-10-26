@@ -31,7 +31,8 @@
 
 .time {
   flex: none;
-  width: 3em;
+  min-width: 3em;
+  white-space: nowrap;
   color: var(--core-text-muted);
   font-variant-numeric: tabular-nums;
 }
