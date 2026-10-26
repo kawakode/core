@@ -144,7 +144,7 @@ Le principe est de ne pas patcher Gecko. Les exceptions sont petites, dans
 
 | Correctif | Pourquoi |
 |---|---|
-| `0001-remote-settings-dumps-core` | Le build doit connaître l'emplacement des données Remote Settings du projet `core` |
+| `0001-remote-settings-dumps-core` | Le build doit connaître l'emplacement des données Remote Settings du projet `core`, et les installer dans `app/defaults/settings`, où Remote Settings les cherche |
 | `0002-sans-llama-core` | Ne pas compiler llama.cpp (`mozinference`), construit d'office sur desktop : aucune IA dans Core |
 | `0003-llvm-dlltool-core` | Le build Windows de `core` a besoin de `llvm-dlltool`, comme celui de Firefox |
 | `0004-hevc-ffvpx-core` | Activer le décodeur H.265/HEVC de FFmpeg dans le ffvpx embarqué |
