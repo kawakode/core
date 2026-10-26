@@ -458,10 +458,15 @@ body {
   --panel-padding: 4px;
 }
 
+/* Le contenu d'un panel est une boîte flex en ligne : liste puis pied. */
+#downloads-panel::part(content) {
+  flex-direction: column;
+}
+
 #downloads-panel #downloads-list {
   display: flex;
   flex-direction: column;
-  width: 320px;
+  width: 360px;
   max-height: 400px;
   overflow-y: auto;
 }
@@ -471,6 +476,11 @@ body {
   content: "Aucun téléchargement";
   padding: 8px;
   color: var(--core-text-muted);
+}
+
+/* Hauteur fixe : au-delà de max-height, la liste défile. */
+#downloads-panel .download {
+  flex: none;
 }
 
 #downloads-panel-footer {

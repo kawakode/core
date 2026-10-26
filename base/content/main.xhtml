@@ -74,7 +74,9 @@
     <button id="downloads-bar-close" class="icon-button" title="Masquer la barre"
             aria-label="Masquer la barre"></button>
   </div>
-  <xul:panel id="downloads-panel" noautofocus="true" role="dialog"
+  <!-- consumeoutsideclicks : le panneau s'ouvre de lui-même à chaque
+       téléchargement ; un clic dans la page le ferme sans être perdu. -->
+  <xul:panel id="downloads-panel" noautofocus="true" consumeoutsideclicks="never" role="dialog"
              aria-label="Téléchargements">
     <div id="downloads-panel-footer">
       <button id="downloads-panel-clear" class="text-button">Effacer la liste</button>

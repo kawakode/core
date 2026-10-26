@@ -106,7 +106,7 @@ const gDownloads = {
     }
     document.getElementById("downloads-dir-change").addEventListener("click", event => {
       event.preventDefault();
-      this.chooseFolder();
+      this.chooseFolder().catch(console.error);
     });
     this.showFolder();
   },
@@ -119,9 +119,16 @@ const gDownloads = {
       await Downloads.getPreferredDownloadsDirectory();
   },
 
-  chooseFolder() {
+  async chooseFolder() {
+    let { Downloads } = ChromeUtils.importESModule(
+      "resource://gre/modules/Downloads.sys.mjs"
+    );
     let picker = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
     picker.init(window.browsingContext, "Dossier des téléchargements", Ci.nsIFilePicker.modeGetFolder);
+    // Le sélecteur s'ouvre sur le dossier actuel, pas sur « Récents ».
+    let dir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+    dir.initWithPath(await Downloads.getPreferredDownloadsDirectory());
+    picker.displayDirectory = dir;
     picker.open(result => {
       if (result != Ci.nsIFilePicker.returnOK) {
         return;

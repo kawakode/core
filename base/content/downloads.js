@@ -49,7 +49,12 @@ var gDownloads = {
     });
     let panel = document.getElementById("downloads-panel");
     panel.addEventListener("popupshown", () => button.setAttribute("open", "true"));
-    panel.addEventListener("popuphidden", () => button.removeAttribute("open"));
+    panel.addEventListener("popuphidden", () => {
+      button.removeAttribute("open");
+      // Ouvert par Ctrl+Maj+Y ou le menu ≡ sur une liste vide : le bouton
+      // affiché pour l'occasion disparaît avec le panneau.
+      this.updateButton();
+    });
     document.getElementById("downloads-bar-close").addEventListener("click", () => {
       document.getElementById("downloads-bar").hidden = true;
     });
@@ -213,7 +218,11 @@ var gDownloads = {
     let state = this.state(download);
     let fileName = PathUtils.filename(download.target.path ?? "") || download.source.url;
     item.setAttribute("state", state);
-    item.title = download.target.path ?? download.source.url;
+    // Infobulle : chemin du fichier, ou la raison de l'échec.
+    item.title =
+      state == "failed" && download.error.message
+        ? download.error.message
+        : download.target.path ?? download.source.url;
     item.querySelector(".download-name").textContent = fileName;
     item.querySelector(".download-status").textContent = this.statusText(download, state);
     let extension = fileName.includes(".") ? fileName.split(".").pop() : "";
@@ -292,7 +301,7 @@ var gDownloads = {
 
   formatTimeLeft(seconds) {
     if (seconds < 60) {
-      return "moins d'une minute";
+      return `encore ${Math.max(1, Math.round(seconds))} s`;
     }
     let minutes = Math.round(seconds / 60);
     if (minutes < 60) {
