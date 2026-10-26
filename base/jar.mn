@@ -13,3 +13,7 @@ core.jar:
   content/core/settings.xhtml  (content/settings.xhtml)
   content/core/settings.js     (content/settings.js)
   content/core/settings.css    (content/settings.css)
+  content/core/pages.css       (content/pages.css)
+  content/core/history.xhtml   (content/history.xhtml)
+  content/core/history.js      (content/history.js)
+  content/core/history.css     (content/history.css)

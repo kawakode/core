@@ -4,7 +4,7 @@
 
 // Pages about: que Gecko attend de l'application. Firefox les déclare dans
 // browser/components/about/AboutRedirector.cpp ; Core n'en garde que celles
-// qui pointent vers du code de toolkit/.
+// qui pointent vers du code de toolkit/, plus ses propres pages.
 
 const PAGES = {
   // Erreurs de certificat : même page que about:neterror (toolkit/content).
@@ -15,6 +15,12 @@ const PAGES = {
       Ci.nsIAboutModule.URI_CAN_LOAD_IN_CHILD |
       Ci.nsIAboutModule.ALLOW_SCRIPT |
       Ci.nsIAboutModule.HIDE_FROM_ABOUTABOUT,
+  },
+  // Historique : page de Core, dans le processus parent (lit Places).
+  history: {
+    url: "chrome://core/content/history.xhtml",
+    flags:
+      Ci.nsIAboutModule.ALLOW_SCRIPT | Ci.nsIAboutModule.IS_SECURE_CHROME_UI,
   },
 };
 

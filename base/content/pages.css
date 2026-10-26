@@ -1,0 +1,89 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* Pages internes (historique…) : mêmes variables que l'interface, une
+ * colonne centrée, rien à télécharger (design.md, section 6). */
+
+@import url("chrome://core/content/tokens.css");
+
+html {
+  background: var(--core-bg-raised);
+  color: var(--core-text);
+  font: message-box;
+}
+
+body {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+h1 {
+  margin: 0 0 16px;
+  font-size: 1.4em;
+  font-weight: 600;
+}
+
+h2 {
+  margin: 20px 0 4px;
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--core-text-muted);
+}
+
+:focus-visible {
+  outline: 2px solid var(--core-accent);
+  outline-offset: 1px;
+}
+
+input[type="search"],
+select,
+button {
+  height: var(--core-field-height);
+  margin: 0;
+  border: 1px solid var(--core-border);
+  border-radius: var(--core-radius-small);
+  background: var(--core-bg-raised);
+  color: inherit;
+  font: inherit;
+}
+
+input[type="search"] {
+  padding: 0 8px;
+}
+
+input[type="search"]:focus {
+  outline: none;
+  border: 2px solid var(--core-accent);
+  padding: 0 7px;
+}
+
+button {
+  padding: 0 12px;
+  transition: background-color var(--core-transition);
+}
+
+button:hover {
+  background-color: var(--core-bg-hover);
+}
+
+button:hover:active {
+  background-color: var(--core-bg-active);
+}
+
+.icon-button {
+  flex: none;
+  width: var(--core-button-size);
+  height: var(--core-button-size);
+  padding: 0;
+  border: none;
+  background: transparent center no-repeat;
+  background-size: 16px;
+  -moz-context-properties: stroke;
+  stroke: currentColor;
+}
+
+.muted {
+  color: var(--core-text-muted);
+}
