@@ -5,7 +5,7 @@
 "use strict";
 
 // Fenêtre de réglages : sandbox des processus de contenu, barre de titre,
-// téléchargements et réponse par défaut aux certificats invalides.
+// historique, téléchargements et réponse par défaut aux certificats invalides.
 
 const SANDBOX_PREF = "security.sandbox.content.level";
 
@@ -142,6 +142,23 @@ const gDownloads = {
   },
 };
 
+// Enregistrement de l'historique (Places).
+const gHistory = {
+  PREF: "places.history.enabled",
+
+  init() {
+    let checkbox = document.getElementById("history");
+    checkbox.checked = Services.prefs.getBoolPref(this.PREF, true);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        Services.prefs.clearUserPref(this.PREF);
+      } else {
+        Services.prefs.setBoolPref(this.PREF, false);
+      }
+    });
+  },
+};
+
 // Barre de titre du système plutôt que celle de Core (onglets dans la barre
 // de titre). Décoché, on revient au choix par défaut du système.
 const gTitlebar = {
@@ -170,6 +187,7 @@ window.addEventListener(
     gTitlebar.init();
     gDownloads.init();
     gCertError.init();
+    gHistory.init();
     document.getElementById("restart").addEventListener("click", () => {
       Services.startup.quit(
         Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart
