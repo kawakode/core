@@ -16,6 +16,12 @@ const PAGES = {
       Ci.nsIAboutModule.ALLOW_SCRIPT |
       Ci.nsIAboutModule.HIDE_FROM_ABOUTABOUT,
   },
+  // Gestionnaire de marque-pages, dans le processus principal (il lit et
+  // modifie Places directement), interdit aux pages web.
+  bookmarks: {
+    url: "chrome://core/content/bookmarks-manager.xhtml",
+    flags: Ci.nsIAboutModule.ALLOW_SCRIPT | Ci.nsIAboutModule.IS_SECURE_CHROME_UI,
+  },
   // Historique : page de Core, dans le processus parent (lit Places).
   history: {
     url: "chrome://core/content/history.xhtml",

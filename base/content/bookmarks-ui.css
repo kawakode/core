@@ -1,0 +1,199 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* Marque-pages dans la fenêtre principale : étoile, menus, barre et
+ * panneau d'édition (base/content/bookmarks.js). */
+
+/* Étoile : contour au repos, pleine en couleur d'accent si la page est
+ * marquée. */
+#bookmark-star {
+  background-image: url("chrome://core/content/icons/star.svg");
+  -moz-context-properties: fill, stroke;
+  fill: transparent;
+}
+
+#bookmark-star[starred] {
+  fill: var(--core-accent);
+  stroke: var(--core-accent);
+}
+
+#bookmark-star[hidden] {
+  display: none;
+}
+
+/* Menus des marque-pages et sous-menus du menu ≡ : même aplat que le
+ * menu ≡ (main.css). */
+.bookmarks-popup,
+#bookmark-panel {
+  --panel-background-color: var(--core-bg-raised);
+  --panel-text-color: var(--core-text);
+  --panel-border-color: var(--core-border);
+  --panel-border-radius: var(--core-radius);
+  --panel-box-shadow: none;
+  --panel-box-shadow-margin: 0px;
+  --menuitem-border-radius: var(--core-radius-small);
+}
+
+.bookmarks-popup > menuitem,
+.bookmarks-popup > menu,
+#app-menu menupopup > menuitem,
+#app-menu menupopup > menu,
+#app-menu > menu {
+  min-height: 28px;
+  max-width: 420px;
+}
+
+.bookmarks-popup > :is(menuitem, menu)[_moz-menuactive],
+#app-menu menupopup > :is(menuitem, menu)[_moz-menuactive],
+#app-menu > menu[_moz-menuactive] {
+  background-color: var(--core-bg-hover);
+  color: var(--core-text);
+}
+
+#app-menu menupopup > menuitem > .menu-accel {
+  color: var(--core-text-muted);
+}
+
+/* Barre de marque-pages : une ligne de 28 px sous la barre d'outils,
+ * défilement à la molette au-delà de la largeur. */
+#bookmarks-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--core-bg-raised);
+  border-bottom: 1px solid var(--core-border);
+}
+
+#bookmarks-bar[hidden] {
+  display: none;
+}
+
+.bookmark-item {
+  appearance: none;
+  flex: none;
+  max-width: 180px;
+  height: 22px;
+  margin: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  border: none;
+  border-radius: var(--core-radius-small);
+  background: transparent;
+  color: var(--core-text);
+  font: inherit;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: background-color var(--core-transition);
+}
+
+.bookmark-item:hover {
+  background-color: var(--core-bg-hover);
+}
+
+.bookmark-item:hover:active {
+  background-color: var(--core-bg-active);
+}
+
+.bookmark-folder {
+  padding-inline-start: 26px;
+  background: url("chrome://core/content/icons/folder.svg") 6px center no-repeat;
+  -moz-context-properties: stroke;
+  stroke: var(--core-text-muted);
+}
+
+.bookmark-separator {
+  flex: none;
+  height: 14px;
+  margin: 0 4px;
+  border-left: 1px solid var(--core-border);
+}
+
+.bookmarks-bar-empty {
+  color: var(--core-text-muted);
+  white-space: nowrap;
+}
+
+/* Panneau d'édition : un titre, trois champs, deux boutons. */
+#bookmark-panel-body {
+  display: grid;
+  grid-template-columns: auto 260px;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 16px;
+}
+
+#bookmark-panel-title {
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+#bookmark-panel-body > label {
+  color: var(--core-text-muted);
+}
+
+#bookmark-panel-body > input {
+  appearance: none;
+  height: var(--core-field-height);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid var(--core-border);
+  border-radius: var(--core-radius-small);
+  background: var(--core-bg);
+  color: var(--core-text);
+  font: inherit;
+}
+
+#bookmark-panel-body > input:focus {
+  border: 2px solid var(--core-accent);
+  padding: 0 7px;
+  outline: none;
+}
+
+#bookmark-folder {
+  margin: 0;
+}
+
+#bookmark-panel-buttons {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+#bookmark-panel-buttons > button {
+  appearance: none;
+  min-width: 88px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--core-border);
+  border-radius: var(--core-radius-small);
+  background: var(--core-bg-raised);
+  color: var(--core-text);
+  font: inherit;
+  transition: background-color var(--core-transition);
+}
+
+#bookmark-panel-buttons > button:hover {
+  background-color: var(--core-bg-hover);
+}
+
+#bookmark-panel-buttons > .primary {
+  border-color: var(--core-accent);
+  background: var(--core-accent);
+  color: var(--core-bg-raised);
+}
+
+#bookmark-panel-buttons > .primary:hover {
+  background: var(--core-accent);
+  opacity: 0.9;
+}

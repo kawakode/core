@@ -1,0 +1,248 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* Gestionnaire de marque-pages : mêmes variables que l'interface
+ * (tokens.css), dossiers à gauche, contenu à droite. */
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  background: var(--core-bg-raised);
+  color: var(--core-text);
+  font: menu;
+}
+
+:focus-visible {
+  outline: 2px solid var(--core-accent);
+  outline-offset: 1px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+h1 {
+  flex: 1;
+  margin: 0;
+  font-size: 1.4em;
+  font-weight: 600;
+}
+
+h2 {
+  margin: 0 0 8px;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+input {
+  appearance: none;
+  height: var(--core-field-height);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid var(--core-border);
+  border-radius: var(--core-radius-small);
+  background: var(--core-bg);
+  color: var(--core-text);
+  font: inherit;
+}
+
+input:focus {
+  border: 2px solid var(--core-accent);
+  padding: 0 7px;
+  outline: none;
+}
+
+input[invalid] {
+  border-color: var(--core-danger);
+}
+
+#search {
+  width: 240px;
+}
+
+button {
+  appearance: none;
+  height: 28px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--core-border);
+  border-radius: var(--core-radius-small);
+  background: var(--core-bg-raised);
+  color: var(--core-text);
+  font: inherit;
+  transition: background-color var(--core-transition);
+}
+
+button:hover {
+  background-color: var(--core-bg-hover);
+}
+
+button:hover:active {
+  background-color: var(--core-bg-active);
+}
+
+#status {
+  min-height: 1.4em;
+  margin: 8px 0;
+  color: var(--core-text-muted);
+}
+
+main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 16px;
+}
+
+/* Dossiers */
+
+#folders {
+  flex: none;
+  width: 240px;
+  overflow-y: auto;
+  padding-inline-end: 8px;
+  border-inline-end: 1px solid var(--core-border);
+}
+
+.folder {
+  height: 28px;
+  line-height: 28px;
+  overflow: hidden;
+  border-radius: var(--core-radius-small);
+  background: url("chrome://core/content/icons/folder.svg") no-repeat;
+  -moz-context-properties: stroke;
+  stroke: var(--core-text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: background-color var(--core-transition);
+}
+
+.folder:hover {
+  background-color: var(--core-bg-hover);
+}
+
+.folder[selected] {
+  background-color: var(--core-bg-active);
+  stroke: var(--core-accent);
+}
+
+/* Contenu */
+
+#content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+#items {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+#items > li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 28px;
+  padding-inline: 28px 8px;
+  border-radius: var(--core-radius-small);
+  background: url("chrome://core/content/icons/star.svg") 6px center no-repeat;
+  -moz-context-properties: fill, stroke;
+  fill: transparent;
+  stroke: var(--core-text-muted);
+  white-space: nowrap;
+  transition: background-color var(--core-transition);
+}
+
+#items > .folder-item {
+  background-image: url("chrome://core/content/icons/folder.svg");
+}
+
+#items > .separator {
+  background-image: none;
+}
+
+#items > .separator::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--core-border);
+}
+
+#items > li:hover {
+  background-color: var(--core-bg-hover);
+}
+
+#items > li[selected] {
+  background-color: var(--core-bg-active);
+}
+
+#items .name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#items .url {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--core-text-muted);
+  text-overflow: ellipsis;
+}
+
+#empty {
+  color: var(--core-text-muted);
+}
+
+/* Détails de la ligne choisie */
+
+#details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--core-border);
+}
+
+#details[hidden],
+#details > [hidden] {
+  display: none;
+}
+
+#details > label {
+  color: var(--core-text-muted);
+}
+
+#detail-folder {
+  justify-self: start;
+  min-width: 240px;
+  margin: 0;
+}
+
+#detail-buttons {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+}

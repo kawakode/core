@@ -98,6 +98,15 @@ pref("extensions.getAddons.search.browseURL", "https://addons.mozilla.org/%LOCAL
 // Aucune fonction d'IA dans Core (décision du 18/10/2026).
 pref("browser.ml.enable", false);
 
+// Marque-pages : pas de barre par défaut (Ctrl+Maj+B l'affiche), et
+// jusqu'à 15 sauvegardes quotidiennes dans le dossier bookmarkbackups du
+// profil (modules/CoreBookmarks.sys.mjs).
+pref("core.bookmarks.toolbar", false);
+pref("browser.bookmarks.max_backups", 15);
+// Journal de Places (toolkit) limité aux erreurs, comme Firefox : sans cette
+// préférence, la console reçoit toutes les traces du module.
+pref("places.loglevel", "Error");
+
 // Onglets en arrière-plan déchargés après 30 minutes sans être affichés,
 // et tous dès que le système signale un manque de mémoire.
 pref("core.tabs.unloadAfterMinutes", 30);

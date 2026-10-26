@@ -18,3 +18,8 @@ core.jar:
   content/core/history.xhtml   (content/history.xhtml)
   content/core/history.js      (content/history.js)
   content/core/history.css     (content/history.css)
+  content/core/bookmarks.js    (content/bookmarks.js)
+  content/core/bookmarks-ui.css  (content/bookmarks-ui.css)
+  content/core/bookmarks-manager.xhtml  (content/bookmarks-manager.xhtml)
+  content/core/bookmarks-manager.js     (content/bookmarks-manager.js)
+  content/core/bookmarks-manager.css    (content/bookmarks-manager.css)
