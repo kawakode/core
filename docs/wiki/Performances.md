@@ -56,9 +56,41 @@ build Windows de Core :
 Les chiffres absolus ne sont pas comparables à ceux de Linux (autre machine,
 Wine, rendu logiciel). Reste à mesurer sur une vraie machine Windows.
 
+## Patchs de Mozilla jamais intégrés
+
+**Tests du 22 au 24 octobre 2026**, sur Rycore (Ryzen 9 5900X, 32 Go,
+Xvfb, WebRender logiciel, bac à sable actif). Builds PGO + LTO des deux
+côtés, chacun avec son propre profilage, passes alternées avec un profil neuf.
+
+Sur environ 300 patchs de performance jamais intégrés par Mozilla (Bugzilla et
+Phabricator), les plus prometteurs ont été essayés. Aucun n'est gardé :
+
+| Essai | Mesure | Sans | Avec | Verdict |
+|---|---|---|---|---|
+| Rendu, bugs 1933414 + 1933417 | Speedometer 3 | 25,70 | 25,65 | Dans le bruit |
+| | MotionMark 1.3.1 | 1 235,6 | 1 235,8 | |
+| ShortAtomCache (bug 2052769, venu de Firefox 156) | Speedometer 3 | 25,85 | 25,85 | Dans le bruit |
+| | MotionMark 1.3.1 | 1 238 | 1 242 | |
+| Pref `gc_balanced_heap_limits` | Speedometer 3 | 25,9 | 25,9 | Pic mémoire +62 % |
+| | Mémoire au repos (PSS) | 937 Mo | 897 Mo | |
+| Canal jar hors du thread principal (bug 1456626) | Premier affichage, à chaud | 312 ms | 308 ms | Dans le bruit |
+
+Lecture : les gains annoncés par Mozilla pour ces patchs (0,2 à 1,7 %) sont
+plus petits que l'écart entre deux passes. Les autres candidats étaient
+périmés (code réécrit depuis), déjà corrigés dans ESR 153, ou propres à
+Firefox (Safe Browsing, interface).
+
+## Démarrage
+
+**Tests du 24 octobre 2026**, mêmes conditions, 20 lancements par côté
+(`scripts/perf/startup.py`). Premier affichage depuis le lancement du
+processus : **312 ms** à chaud, **environ 600 ms** à froid (cache disque
+vidé). À froid, comparer des copies fraîches des deux builds : l'emplacement
+des fichiers sur le disque suffit à faire varier le résultat d'environ 7 %.
+
 ## À mesurer
 
-- Temps de démarrage à froid et à chaud.
+- Démarrage face à Firefox officiel, et Core empaqueté en omni.ja.
 - Mémoire face à un Firefox ESR 153.5 compilé dans les mêmes conditions (même
   compilateur, mêmes options), pour isoler ce que gagne la coquille seule.
 - MotionMark avec un vrai GPU.

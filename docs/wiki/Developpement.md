@@ -66,6 +66,9 @@ et `cert_override.txt`, sinon la page en cache s'affiche sans l'erreur.
 - Console du navigateur : `./mach run --jsconsole`.
 - WebDriver : Core se pilote par Marionette (lancer `core --marionette`), ce
   qui sert au profilage PGO et aux mesures de performance.
+- `scripts/perf/startup.py` : temps de démarrage A/B, à chaud ou à froid.
+  `scripts/perf/mem.py` : mémoire A/B avec ou sans une préférence. Usage en
+  tête de chaque script, résultats dans [Performances](Performances.md).
 
 ## Préférences
 
