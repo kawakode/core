@@ -13,7 +13,7 @@ développement, build, performances, sécurité, choix du projet).
 - **Pas un fork** : Core est un projet Gecko à part (`--enable-project=core`),
   comme Thunderbird. Il réutilise le moteur et `toolkit/`, et n'embarque rien
   de l'interface ni des services de Firefox (`browser/`). Base actuelle :
-  Gecko ESR 153.5.0.
+  Gecko ESR 153.5.1.
 - **Plus léger, aussi rapide** : à build égal (PGO + LTO), moteur à parité
   avec Firefox officiel, premier affichage 32 % plus rapide et mémoire
   presque divisée par deux (mesures du 20/10/2026, voir
