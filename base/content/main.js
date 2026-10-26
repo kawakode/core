@@ -348,9 +348,12 @@ const gToolbar = {
       for (let item of menu.querySelectorAll("[acceltext]")) {
         item.setAttribute("acceltext", item.getAttribute("acceltext").replace("Ctrl+", "⌘"));
       }
+      // ⌘H masque l'application sous macOS.
+      document.getElementById("menu-history").setAttribute("acceltext", "⌘⇧H");
     }
     let commands = {
       "menu-newtab": () => gTabs.open(null),
+      "menu-history": openHistory,
       "menu-addons": () => BrowserAddonUI.openAddonsMgr(),
       "menu-settings": openSettings,
       "menu-quit": quit,
@@ -446,6 +449,10 @@ function openSettings() {
   );
 }
 
+function openHistory() {
+  switchToTabHavingURI("about:history");
+}
+
 // Ouvre une adresse dans un onglet, ou bascule sur l'onglet qui l'affiche déjà.
 function switchToTabHavingURI(url, openNew = true, { triggeringPrincipal = null } = {}) {
   let spec = url instanceof Ci.nsIURI ? url.spec : url;
@@ -523,6 +530,12 @@ function onKeyDown(event) {
     gTabs.open(null);
   } else if (accel && event.shiftKey && event.key.toLowerCase() == "a") {
     BrowserAddonUI.openAddonsMgr();
+  } else if (
+    accel &&
+    event.key.toLowerCase() == "h" &&
+    event.shiftKey == (AppConstants.platform == "macosx")
+  ) {
+    openHistory();
   } else if (accel && event.key == "q") {
     quit();
   } else if (accel && event.key == "w") {

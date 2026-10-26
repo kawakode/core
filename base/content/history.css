@@ -1,0 +1,68 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#controls {
+  display: flex;
+  gap: 8px;
+}
+
+#search {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Une ligne par page : heure, titre, adresse en gris, bouton supprimer. */
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 32px;
+  padding: 0 4px 0 8px;
+  border-radius: var(--core-radius-small);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color var(--core-transition);
+}
+
+.entry:hover {
+  background-color: var(--core-bg-hover);
+}
+
+.time {
+  flex: none;
+  width: 3em;
+  color: var(--core-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.title,
+.url {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.title {
+  flex: 0 1 auto;
+}
+
+.url {
+  flex: 1 1 0;
+  min-width: 6em;
+  color: var(--core-text-muted);
+}
+
+.remove {
+  background-image: url("chrome://core/content/icons/close.svg");
+  opacity: 0;
+}
+
+.entry:hover > .remove,
+.remove:focus-visible {
+  opacity: 1;
+}
+
+#more {
+  height: 1px;
+}
