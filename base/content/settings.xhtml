@@ -5,7 +5,7 @@
 
 <html xmlns="http://www.w3.org/1999/xhtml"
       windowtype="core:settings"
-      width="480" height="540">
+      width="480" height="760">
 <head>
   <meta http-equiv="Content-Security-Policy"
         content="script-src chrome: resource:; object-src 'none';" />
@@ -51,6 +51,17 @@
       Décoché, Core n'enregistre plus les pages visitées. L'historique déjà
       enregistré reste visible jusqu'à ce que vous l'effaciez (Ctrl+H).
     </p>
+  </section>
+  <section>
+    <h2>Téléchargements</h2>
+    <label><input type="radio" name="downloads-display" value="panel" /> Dans un panneau sous un bouton de la barre d'outils</label>
+    <label><input type="radio" name="downloads-display" value="bar" /> Dans une barre en bas de la fenêtre</label>
+    <label>
+      <input type="radio" name="downloads-dir" value="dir" />
+      Enregistrer dans <span id="downloads-dir-path"></span>
+      <button id="downloads-dir-change">Changer…</button>
+    </label>
+    <label><input type="radio" name="downloads-dir" value="ask" /> Toujours demander où enregistrer</label>
   </section>
   <section>
     <h2>Certificat invalide</h2>

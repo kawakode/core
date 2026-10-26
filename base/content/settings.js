@@ -5,7 +5,7 @@
 "use strict";
 
 // Fenêtre de réglages : sandbox des processus de contenu, barre de titre,
-// historique et réponse par défaut aux certificats invalides.
+// historique, téléchargements et réponse par défaut aux certificats invalides.
 
 const SANDBOX_PREF = "security.sandbox.content.level";
 
@@ -72,6 +72,76 @@ const gCertError = {
   },
 };
 
+// Téléchargements : où la liste s'affiche (downloads.js) et où les fichiers
+// sont enregistrés (préférences de toolkit/components/downloads).
+const gDownloads = {
+  DISPLAY_PREF: "core.downloads.display",
+  USE_DIR_PREF: "browser.download.useDownloadDir",
+  FOLDER_LIST_PREF: "browser.download.folderList",
+  DIR_PREF: "browser.download.dir",
+
+  init() {
+    let display = Services.prefs.getStringPref(this.DISPLAY_PREF, "panel");
+    for (let radio of document.querySelectorAll("input[name=downloads-display]")) {
+      radio.checked = radio.value == display;
+      radio.addEventListener("change", () => {
+        if (radio.value == "panel") {
+          Services.prefs.clearUserPref(this.DISPLAY_PREF);
+        } else {
+          Services.prefs.setStringPref(this.DISPLAY_PREF, radio.value);
+        }
+      });
+    }
+
+    let useDir = Services.prefs.getBoolPref(this.USE_DIR_PREF, true);
+    for (let radio of document.querySelectorAll("input[name=downloads-dir]")) {
+      radio.checked = (radio.value == "dir") == useDir;
+      radio.addEventListener("change", () => {
+        if (radio.value == "dir") {
+          Services.prefs.clearUserPref(this.USE_DIR_PREF);
+        } else {
+          Services.prefs.setBoolPref(this.USE_DIR_PREF, false);
+        }
+      });
+    }
+    document.getElementById("downloads-dir-change").addEventListener("click", event => {
+      event.preventDefault();
+      this.chooseFolder().catch(console.error);
+    });
+    this.showFolder();
+  },
+
+  async showFolder() {
+    let { Downloads } = ChromeUtils.importESModule(
+      "resource://gre/modules/Downloads.sys.mjs"
+    );
+    document.getElementById("downloads-dir-path").textContent =
+      await Downloads.getPreferredDownloadsDirectory();
+  },
+
+  async chooseFolder() {
+    let { Downloads } = ChromeUtils.importESModule(
+      "resource://gre/modules/Downloads.sys.mjs"
+    );
+    let picker = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    picker.init(window.browsingContext, "Dossier des téléchargements", Ci.nsIFilePicker.modeGetFolder);
+    // Le sélecteur s'ouvre sur le dossier actuel, pas sur « Récents ».
+    let dir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+    dir.initWithPath(await Downloads.getPreferredDownloadsDirectory());
+    picker.displayDirectory = dir;
+    picker.open(result => {
+      if (result != Ci.nsIFilePicker.returnOK) {
+        return;
+      }
+      Services.prefs.setComplexValue(this.DIR_PREF, Ci.nsIFile, picker.file);
+      Services.prefs.setIntPref(this.FOLDER_LIST_PREF, 2);
+      Services.prefs.clearUserPref(this.USE_DIR_PREF);
+      document.querySelector("input[name=downloads-dir][value=dir]").checked = true;
+      this.showFolder();
+    });
+  },
+};
+
 // Enregistrement de l'historique (Places).
 const gHistory = {
   PREF: "places.history.enabled",
@@ -115,6 +185,7 @@ window.addEventListener(
   () => {
     gSandbox.init();
     gTitlebar.init();
+    gDownloads.init();
     gCertError.init();
     gHistory.init();
     document.getElementById("restart").addEventListener("click", () => {
