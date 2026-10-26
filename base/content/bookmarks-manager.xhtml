@@ -20,7 +20,7 @@
 <body>
   <header>
     <h1>Marque-pages</h1>
-    <input id="search" type="search" placeholder="Rechercher"
+    <input id="search" type="search" placeholder="Rechercher" autocomplete="off"
            aria-label="Rechercher dans les marque-pages" />
     <button id="new-folder">Nouveau dossier</button>
     <button id="new-separator">Séparateur</button>
@@ -36,9 +36,10 @@
       <p id="empty" hidden="true"></p>
       <div id="details" hidden="true">
         <label for="detail-name">Nom</label>
-        <input id="detail-name" type="text" />
+        <input id="detail-name" type="text" autocomplete="off" />
         <label for="detail-url" class="bookmark-only">Adresse</label>
-        <input id="detail-url" class="bookmark-only" type="text" spellcheck="false" />
+        <input id="detail-url" class="bookmark-only" type="text" spellcheck="false"
+               autocomplete="off" />
         <label>Dossier</label>
         <xul:menulist id="detail-folder" aria-label="Dossier">
           <xul:menupopup />

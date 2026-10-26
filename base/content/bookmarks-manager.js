@@ -528,7 +528,11 @@ const gManager = {
     );
     try {
       let count = await BookmarkHTMLUtils.importFromFile(path);
-      this.status(`${count} marque-pages importés.`);
+      this.status(
+        count
+          ? `${count} marque-pages et dossiers importés.`
+          : "Ce fichier ne contient pas de marque-pages lisibles."
+      );
     } catch (error) {
       this.status("Ce fichier ne contient pas de marque-pages lisibles.");
     }
@@ -543,8 +547,8 @@ const gManager = {
       "resource://gre/modules/BookmarkHTMLUtils.sys.mjs"
     );
     try {
-      let count = await BookmarkHTMLUtils.exportToFile(path);
-      this.status(`${count} marque-pages exportés dans ${path}.`);
+      await BookmarkHTMLUtils.exportToFile(path);
+      this.status(`Marque-pages exportés dans ${path}.`);
     } catch (error) {
       this.status(`Export impossible : ${error.message}`);
     }

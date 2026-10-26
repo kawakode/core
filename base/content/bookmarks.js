@@ -173,14 +173,19 @@ var gBookmarks = {
         .catch(console.error);
       panel.hidePopup();
     });
-    panel.addEventListener("keydown", event => {
+    // En capture sur la fenêtre : le gestionnaire des menus XUL consomme
+    // Échap (capture sur le document) avant qu'il n'atteigne le panneau.
+    window.addEventListener("keydown", event => {
+      if (!this._editing || !panel.contains(event.target)) {
+        return;
+      }
       if (event.key == "Enter" && event.target.localName == "input") {
         done();
       } else if (event.key == "Escape" && !document.getElementById("bookmark-folder").open) {
         // Échap annule les changements ; le marque-page reste.
         this._editing.cancelled = true;
       }
-    });
+    }, true);
     panel.addEventListener("popupshown", event => {
       if (event.target != panel) {
         return;

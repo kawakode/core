@@ -103,6 +103,9 @@ pref("browser.ml.enable", false);
 // profil (modules/CoreBookmarks.sys.mjs).
 pref("core.bookmarks.toolbar", false);
 pref("browser.bookmarks.max_backups", 15);
+// Journal de Places (toolkit) limité aux erreurs, comme Firefox : sans cette
+// préférence, la console reçoit toutes les traces du module.
+pref("places.loglevel", "Error");
 
 // Onglets en arrière-plan déchargés après 30 minutes sans être affichés,
 // et tous dès que le système signale un manque de mémoire.

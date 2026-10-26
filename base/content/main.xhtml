@@ -63,7 +63,7 @@
         <xul:menuitem id="menu-bookmarks-manager" label="Gérer les marque-pages"
                       acceltext="Ctrl+Maj+O" />
         <xul:menuitem id="menu-bookmarks-toolbar" type="checkbox"
-                      label="Barre de marque-pages" acceltext="Ctrl+Maj+B" />
+                      label="Afficher la barre" acceltext="Ctrl+Maj+B" />
         <xul:menuseparator id="bookmarks-menu-start" />
       </xul:menupopup>
     </xul:menu>
@@ -87,9 +87,9 @@
     <div id="bookmark-panel-body">
       <h2 id="bookmark-panel-title">Marque-page ajouté</h2>
       <label for="bookmark-name">Nom</label>
-      <input id="bookmark-name" type="text" />
+      <input id="bookmark-name" type="text" autocomplete="off" />
       <label for="bookmark-url">Adresse</label>
-      <input id="bookmark-url" type="text" spellcheck="false" />
+      <input id="bookmark-url" type="text" spellcheck="false" autocomplete="off" />
       <label>Dossier</label>
       <xul:menulist id="bookmark-folder" aria-label="Dossier">
         <xul:menupopup class="bookmarks-popup" />
