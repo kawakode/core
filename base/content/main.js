@@ -351,6 +351,7 @@ const gToolbar = {
     }
     let commands = {
       "menu-newtab": () => gTabs.open(null),
+      "menu-downloads": () => gDownloads.show(),
       "menu-addons": () => BrowserAddonUI.openAddonsMgr(),
       "menu-settings": openSettings,
       "menu-quit": quit,
@@ -523,6 +524,8 @@ function onKeyDown(event) {
     gTabs.open(null);
   } else if (accel && event.shiftKey && event.key.toLowerCase() == "a") {
     BrowserAddonUI.openAddonsMgr();
+  } else if (accel && event.shiftKey && event.key.toLowerCase() == "y") {
+    gDownloads.show();
   } else if (accel && event.key == "q") {
     quit();
   } else if (accel && event.key == "w") {
@@ -690,6 +693,7 @@ window.addEventListener(
 
     gToolbar.init();
     gTitlebar.init();
+    gDownloads.init().catch(console.error);
     window.addEventListener("keydown", onKeyDown, true);
 
     // window.close() d'une page (fenêtres surgissantes, connexions OAuth) :

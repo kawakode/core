@@ -35,3 +35,12 @@ section > label {
   display: block;
   margin-top: 4px;
 }
+
+#downloads-dir-path {
+  font-weight: 600;
+  word-break: break-all;
+}
+
+#downloads-dir-change {
+  margin-inline-start: 4px;
+}

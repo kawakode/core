@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="chrome://core/content/main.css" />
   <script src="chrome://global/content/customElements.js"></script>
   <script src="chrome://core/content/main.js"></script>
+  <script src="chrome://core/content/downloads.js"></script>
 </head>
 <body>
   <!-- Barre de titre : onglets, puis les boutons de la fenêtre quand Core
@@ -46,6 +47,10 @@
             aria-label="Recharger"></button>
     <input id="urlbar" type="text" placeholder="Adresse ou recherche"
            spellcheck="false" autocomplete="off" />
+    <!-- Téléchargements : seulement quand la liste n'est pas vide, en mode
+         panneau (downloads.js). -->
+    <button id="downloads-button" class="icon-button" title="Téléchargements (Ctrl+Maj+Y)"
+            aria-label="Téléchargements" aria-haspopup="dialog" hidden="true"></button>
     <!-- Boutons des extensions (browser_action / action). -->
     <div id="extension-buttons"></div>
     <button id="menu-button" class="icon-button" title="Menu"
@@ -53,6 +58,7 @@
   </div>
   <xul:menupopup id="app-menu">
     <xul:menuitem id="menu-newtab" label="Nouvel onglet" acceltext="Ctrl+T" />
+    <xul:menuitem id="menu-downloads" label="Téléchargements" acceltext="Ctrl+Maj+Y" />
     <xul:menuseparator />
     <xul:menuitem id="menu-addons" label="Extensions" acceltext="Ctrl+Maj+A" />
     <xul:menuitem id="menu-settings" label="Réglages" />
@@ -60,6 +66,29 @@
     <xul:menuitem id="menu-quit" label="Quitter" acceltext="Ctrl+Q" />
   </xul:menupopup>
   <xul:stack id="browsers" flex="1"></xul:stack>
+  <!-- Téléchargements : la liste est dans le panneau ou dans la barre du bas,
+       selon le réglage core.downloads.display. -->
+  <div id="downloads-bar" hidden="true">
+    <div id="downloads-list"></div>
+    <button id="downloads-bar-clear" class="text-button">Effacer la liste</button>
+    <button id="downloads-bar-close" class="icon-button" title="Masquer la barre"
+            aria-label="Masquer la barre"></button>
+  </div>
+  <xul:panel id="downloads-panel" noautofocus="true" role="dialog"
+             aria-label="Téléchargements">
+    <div id="downloads-panel-footer">
+      <button id="downloads-panel-clear" class="text-button">Effacer la liste</button>
+    </div>
+  </xul:panel>
+  <xul:menupopup id="download-menu">
+    <xul:menuitem id="download-menu-open" label="Ouvrir" />
+    <xul:menuitem id="download-menu-folder" label="Afficher dans le dossier" />
+    <xul:menuitem id="download-menu-retry" label="Réessayer" />
+    <xul:menuitem id="download-menu-cancel" label="Annuler" />
+    <xul:menuseparator />
+    <xul:menuitem id="download-menu-copy" label="Copier l'adresse d'origine" />
+    <xul:menuitem id="download-menu-remove" label="Retirer de la liste" />
+  </xul:menupopup>
   <!-- Panneaux des extensions (fenêtres surgissantes des boutons). -->
   <xul:popupset id="mainPopupSet"></xul:popupset>
 </body>
