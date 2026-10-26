@@ -8,7 +8,7 @@
 # correction par Mozilla (montée d'ESR) ou qu'elle ne touche pas Core.
 # À chaque montée d'ESR, retirer les lignes devenues inutiles.
 
-# Gecko 153.5.0esr, crates compilées dans libxul : à corriger par Mozilla.
+# Gecko 153.5.1esr, crates compilées dans libxul : à corriger par Mozilla.
 bincode RUSTSEC-2025-0141  # Bincode is unmaintained
 paste RUSTSEC-2024-0436  # paste - no longer maintained
 proc-macro-error2 RUSTSEC-2026-0173  # proc-macro-error2 is unmaintained
@@ -16,16 +16,18 @@ remove_dir_all GHSA-mc8h-8q98-g5hr  # Race Condition Enabling Link Following and
 ringbuf RUSTSEC-2026-0293  # Double free / use-after-free in `Consumer::skip` and `Consumer::clear`
 serde_with GHSA-7gcf-g7xr-8hxj  # serde_with: KeyValueMap serialization panics on empty sequence or map
 smallbitvec CVE-2026-44983  # smallbitvec: Integer overflow in safe API leads to heap buffer overflo
+tokio RUSTSEC-2026-0386  # `AsyncFd::new` and related constructors violate I/O safety : défaut de typage, pas de déclencheur depuis une page
 
-# Gecko 153.5.0esr, crates d'outils (geckodriver, crashreporter, nimbus-fml), absentes de Core.
+# Gecko 153.5.1esr, crates d'outils (geckodriver, crashreporter, nimbus-fml), absentes de Core.
 quick-xml RUSTSEC-2026-0194  # Quadratic run time when checking a start tag for duplicate attribute n
 quick-xml RUSTSEC-2026-0195  # Unbounded namespace-declaration allocation in `NsReader` enables memor
 unsafe-libyaml RUSTSEC-2024-0449  # unsafe-libyaml is unmaintained
 zip GHSA-4684-h2q9-2vcp  # ZipStreamReader::extract() and ZipArchive::extract() apply Unix permis
 zip GHSA-4v9h-p7m9-rh26  # zip: `ZipArchive::extract` creates symbolic links whose attacker-contr
 zip GHSA-vv5m-jxxh-4627  # Insecure Preservation of SUID/SGID Bits during ZIP Extraction Leading
+basic-toml RUSTSEC-2026-0374  # `basic-toml` is unmaintained : via askama, générateur de code uniffi au build
 
-# Gecko 153.5.0esr, environnement Python de mach : sert au build, pas au navigateur.
+# Gecko 153.5.1esr, environnement Python de mach : sert au build, pas au navigateur.
 aiohttp CVE-2026-22815  # aiohttp allows unlimited trailer headers, leading to possible uncapped
 aiohttp CVE-2026-34513  # AIOHTTP Affected by Denial of Service (DoS) via Unbounded DNS Cache in
 aiohttp CVE-2026-34514  # AIOHTTP has CRLF injection through multipart part content type header
@@ -80,8 +82,18 @@ urllib3 CVE-2026-44431  # urllib3: Sensitive headers forwarded across origins in
 urllib3 CVE-2026-97687  # urllib3: HTTPS proxy TLS configuration may be ignored or overridden
 urllib3 CVE-2026-97689  # urllib3: HTTPResponse.stream()/read_chunked() buffers an unbounded chu
 wheel CVE-2026-24049  # Wheel Affected by Arbitrary File Permission Modification via Path Trav
+aiohttp CVE-2026-111063  # aiohttp: Multiple instances of excessive or unbounded memory/CPU use
+aiohttp CVE-2026-111064  # AIOHTTP: Secure attribute not enforced for shared cookie
+aiohttp CVE-2026-111065  # aiohttp server lacks an initial request/header timeout
+aiohttp CVE-2026-111066  # AIOHTTP: Connector pool exhaustion via Max-Age overflow
+aiohttp CVE-2026-111748  # AIOHTTP: File descriptor exhaustion in multipart requests
+aiohttp CVE-2026-111749  # AIOHTTP: Absolute-form request targets can spoof Request.scheme
+aiohttp CVE-2026-111750  # AIOHTTP: Cookie from subdomain can remove Host-Only Scope from existing
+aiohttp GHSA-2g87-pp6c-29x5  # AIOHTTP: Pure-Python parser request smuggling
+certifi GHSA-6q48-6c7w-9gw2  # certifi bundles emSign root CAs with compromised intermediate CA keys ; Core utilise les racines de NSS
+setuptools GHSA-xmj3-9gf7-h52w  # setuptools: Windows path escape via namespace_packages.txt during legacy
 
-# Gecko 153.5.0esr, bibliothèques C/C++ : correspondance par commit d'origine
+# Gecko 153.5.1esr, bibliothèques C/C++ : correspondance par commit d'origine
 # sur osv.dev. Mozilla corrige souvent ses copies sans changer ce commit, ces
 # lignes sont donc à vérifier une par une avant d'en conclure quoi que ce soit.
 
@@ -149,6 +161,8 @@ third_party/llama.cpp CVE-2026-86317
 
 # Expat : à vérifier en priorité, le parseur XML est exposé au web.
 parser/expat CVE-2026-102633
+parser/expat CVE-2026-113351  # libexpat 2.7.2 through 2.9.0 Denial of Service via XML_ParserReset
+parser/expat CVE-2026-115506  # libexpat through 2.9.0 Denial of Service via Billion Laughs Detection Delay
 parser/expat CVE-2026-50219
 parser/expat CVE-2026-56131
 parser/expat CVE-2026-56132
@@ -173,11 +187,19 @@ parser/expat CVE-2026-93990
 extensions/spellcheck/hunspell OSV-2022-882
 gfx/cairo OSV-2023-298
 gfx/harfbuzz OSV-2026-962
+# harfbuzz : les deux failles visent le moteur de mise en forme WebAssembly,
+# que Gecko ne compile pas (pas de wasm dans gfx/harfbuzz/src/moz.build).
+gfx/harfbuzz CVE-2026-113679  # HarfBuzz 8.0.0 through 14.6.0 Out-of-Bounds Write via WebAssembly font_glyph_to_string
+gfx/harfbuzz CVE-2026-113680  # HarfBuzz 8.0.0 through 14.6.0 WebAssembly Shaper NULL Pointer Dereference DoS
 js/src/irregexp CVE-2026-85046
 js/src/irregexp V8-FRESHNESS  # rappel d'osv.dev que la copie de V8 a vieilli
 media/libjpeg OSV-2026-1068
 modules/freetype2 CVE-2026-50811
 modules/freetype2 CVE-2026-95512
+# zlib : API gz* de fichiers (nsGZFileWriter, rapports mémoire), déclenchées
+# par une écriture disque en échec, pas par du contenu web.
+modules/zlib CVE-2026-76844  # zlib 1.2.11 through 1.3.2 Heap Buffer Overflow via Stale gzwrite Pointer After Failed Write
+modules/zlib CVE-2026-85091  # zlib 1.3.1.2 through 1.3.2 Heap Buffer Overflow via gz_vacate
 netwerk/sctp/src OSV-2021-343
 third_party/msgpack CVE-2026-72854
 third_party/pipewire CVE-2026-5674
