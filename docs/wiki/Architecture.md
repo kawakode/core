@@ -53,7 +53,7 @@ gecko/                    ← clone de Firefox au tag ESR
 | `confvars.sh`, `app.mozbuild`, `moz.build` | Branchement dans le système de build de Gecko (`DIST_SUBDIR = "app"`, car `core` est déjà le nom du binaire) |
 | `app/` | Lanceur natif `nsCoreApp.cpp` (dérivé de `browser/app/nsBrowserApp.cpp`), préférences par défaut `profile/core.js`, permissions par défaut |
 | `base/content/` | Interface : `main.xhtml`/`main.js` (fenêtre, onglets, barre d'adresse), `settings.*` (réglages), `tokens.css` (couleurs et dimensions du design), icônes SVG |
-| `components/` | `CoreGlue` (initialisation au démarrage) et `AboutRedirector` (`about:certerror`) |
+| `components/` | `CoreGlue` (initialisation au démarrage) et `AboutRedirector` (`about:certerror`, `about:history`) |
 | `modules/` | Modules que `toolkit/` attend sous `resource:///modules/` (`HomePage`, `BrowserWindowTracker`, `ExtensionsUI`, `BuiltInThemes`) et l'acteur `CoreCertErrorChild` |
 | `extensions/` | API d'extensions liées à l'interface, l'équivalent de `browser/components/extensions/` |
 | `branding/` | Nom et icônes |
@@ -144,7 +144,7 @@ Le principe est de ne pas patcher Gecko. Les exceptions sont petites, dans
 
 | Correctif | Pourquoi |
 |---|---|
-| `0001-remote-settings-dumps-core` | Le build doit connaître l'emplacement des données Remote Settings du projet `core` |
+| `0001-remote-settings-dumps-core` | Le build doit connaître l'emplacement des données Remote Settings du projet `core`, et les installer dans `app/defaults/settings`, où Remote Settings les cherche |
 | `0002-sans-llama-core` | Ne pas compiler llama.cpp (`mozinference`), construit d'office sur desktop : aucune IA dans Core |
 | `0003-llvm-dlltool-core` | Le build Windows de `core` a besoin de `llvm-dlltool`, comme celui de Firefox |
 | `0004-hevc-ffvpx-core` | Activer le décodeur H.265/HEVC de FFmpeg dans le ffvpx embarqué |

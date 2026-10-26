@@ -395,3 +395,241 @@ body {
   font-style: italic;
   opacity: 0.6;
 }
+
+/* Téléchargements (downloads.js) : la même liste dans le panneau sous le
+ * bouton ou dans la barre du bas. L'avancement est un trait mis à l'échelle
+ * (transform), sans recalcul de la mise en page. */
+
+#downloads-button {
+  position: relative;
+  background-image: url("chrome://core/content/icons/download.svg");
+}
+
+#downloads-button[open] {
+  background-color: var(--core-bg-active);
+}
+
+#downloads-button[attention] {
+  color: var(--core-accent);
+}
+
+#downloads-button[downloading]::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--core-accent);
+  transform-origin: left;
+  transform: scaleX(var(--download-progress, 0));
+}
+
+.text-button {
+  appearance: none;
+  flex: none;
+  height: var(--core-button-size);
+  margin: 0;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--core-radius-small);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  transition: background-color var(--core-transition);
+}
+
+.text-button:hover {
+  background-color: var(--core-bg-hover);
+}
+
+.text-button:hover:active {
+  background-color: var(--core-bg-active);
+}
+
+#downloads-panel {
+  --panel-background-color: var(--core-bg-raised);
+  --panel-text-color: var(--core-text);
+  --panel-border-color: var(--core-border);
+  --panel-border-radius: var(--core-radius);
+  --panel-box-shadow: none;
+  --panel-box-shadow-margin: 0px;
+  --panel-padding: 4px;
+}
+
+/* Le contenu d'un panel est une boîte flex en ligne : liste puis pied. */
+#downloads-panel::part(content) {
+  flex-direction: column;
+}
+
+#downloads-panel #downloads-list {
+  display: flex;
+  flex-direction: column;
+  width: 360px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+#downloads-panel #downloads-list:empty::before,
+#downloads-bar #downloads-list:empty::before {
+  content: "Aucun téléchargement";
+  padding: 8px;
+  color: var(--core-text-muted);
+}
+
+/* Hauteur fixe : au-delà de max-height, la liste défile. */
+#downloads-panel .download {
+  flex: none;
+}
+
+#downloads-panel-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--core-border);
+}
+
+#downloads-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  background: var(--core-bg-raised);
+  border-top: 1px solid var(--core-border);
+}
+
+#downloads-bar[hidden] {
+  display: none;
+}
+
+#downloads-bar #downloads-list {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+#downloads-bar .download {
+  flex: 0 0 220px;
+}
+
+#downloads-bar-close {
+  background-image: url("chrome://core/content/icons/close.svg");
+}
+
+.download {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 40px;
+  box-sizing: border-box;
+  padding: 0 4px 0 8px;
+  border-radius: var(--core-radius-small);
+  cursor: default;
+  transition: background-color var(--core-transition);
+}
+
+.download:hover {
+  background-color: var(--core-bg-hover);
+}
+
+.download-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.download-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.download-name,
+.download-status {
+  overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(to left, transparent, black 24px);
+}
+
+.download-status {
+  font-size: 0.9em;
+  color: var(--core-text-muted);
+}
+
+.download[state="failed"] .download-status {
+  color: var(--core-danger);
+}
+
+.download[state="deleted"] .download-name,
+.download[state="canceled"] .download-name {
+  color: var(--core-text-muted);
+  text-decoration: line-through;
+}
+
+.download-progress {
+  display: none;
+  height: 2px;
+  margin-top: 2px;
+  border-radius: 1px;
+  background: var(--core-border);
+}
+
+.download[state="downloading"] .download-progress,
+.download[state="paused"] .download-progress {
+  display: block;
+}
+
+.download-progress::before {
+  content: "";
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--core-accent);
+  transform-origin: left;
+  transform: scaleX(var(--download-progress, 0));
+}
+
+.download-action {
+  -moz-context-properties: stroke;
+}
+
+.download-action[kind="cancel"] {
+  background-image: url("chrome://core/content/icons/close.svg");
+}
+
+.download-action[kind="retry"] {
+  background-image: url("chrome://core/content/icons/reload.svg");
+}
+
+.download-action[kind="folder"] {
+  background-image: url("chrome://core/content/icons/folder.svg");
+}
+
+.download:not(:hover, :focus-within) > .download-action[kind="folder"] {
+  visibility: hidden;
+}
+
+#download-menu {
+  --panel-background-color: var(--core-bg-raised);
+  --panel-text-color: var(--core-text);
+  --panel-border-color: var(--core-border);
+  --panel-border-radius: var(--core-radius);
+  --panel-box-shadow: none;
+  --panel-box-shadow-margin: 0px;
+  --menuitem-border-radius: var(--core-radius-small);
+}
+
+#download-menu > menuitem[_moz-menuactive] {
+  background-color: var(--core-bg-hover);
+  color: var(--core-text);
+}

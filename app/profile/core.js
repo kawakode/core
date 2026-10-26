@@ -111,6 +111,19 @@ pref("places.loglevel", "Error");
 // et tous dès que le système signale un manque de mémoire.
 pref("core.tabs.unloadAfterMinutes", 30);
 
+// Téléchargements : enregistrés sans question dans le dossier
+// Téléchargements du système (Firefox fait de même ; sans ces valeurs de
+// browser/app/profile/firefox.js, toolkit demande chaque fois où enregistrer).
+// Les réglages de Core permettent de choisir un autre dossier ou de toujours
+// demander.
+pref("browser.download.useDownloadDir", true);
+pref("browser.download.folderList", 1);
+pref("browser.download.manager.addToRecentDocs", true);
+pref("browser.download.manager.resumeOnWakeDelay", 10000);
+// Liste des téléchargements : "panel" (bouton et panneau sous la barre
+// d'outils) ou "bar" (barre en bas de la fenêtre). Voir base/content/downloads.js.
+pref("core.downloads.display", "panel");
+
 // Liens « En savoir plus » des pages d'erreur.
 pref("app.support.baseURL", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/");
 
