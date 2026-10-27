@@ -2,7 +2,7 @@
 import json, socket, time
 
 class Marionette:
-    def __init__(self, port=2828, timeout=60):
+    def __init__(self, port=2828, timeout=60, cmd_timeout=None):
         end = time.time() + timeout
         while True:
             try:
@@ -17,7 +17,8 @@ class Marionette:
                 if time.time() > end:
                     raise
                 time.sleep(0.5)
-        self.s.settimeout(None)
+        # cmd_timeout : délai par commande (socket.timeout), aucun par défaut.
+        self.s.settimeout(cmd_timeout)
         self.id = 0
         self.cmd("WebDriver:NewSession", {"capabilities": {"alwaysMatch": {"pageLoadStrategy": "normal"}}})
         self.cmd("WebDriver:SetTimeouts", {"script": 3600000, "pageLoad": 120000})

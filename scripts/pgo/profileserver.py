@@ -31,24 +31,44 @@ def index_without_quitter(request):
     return (200, {"Content-Type": "text/html"}, body)
 
 
-def quit_on_quit_page(httpd):
+def quit_html(request):
+    # Jamais depuis le cache : la seconde passe réutilise le profil de la
+    # première, et un quit.html servi par le cache HTTP n'arrive pas au serveur
+    # (request_log), donc rien ne déclenche la sortie. Le cache garde le
+    # fichier d'autant plus longtemps que l'arbre est ancien (fraîcheur
+    # heuristique : 10 % de l'âge du fichier).
+    topsrcdir = MozbuildObject.from_environment().topsrcdir
+    with open(os.path.join(topsrcdir, "build", "pgo", "quit.html")) as f:
+        body = f.read()
+    return (200, {"Content-Type": "text/html", "Cache-Control": "no-store"}, body)
+
+
+def quit_on_quit_page(httpd, runner):
     # Session Marionette ouverte seulement à la fin : ses acteurs perturbent
     # les pages profilées.
     seen = len(httpd.request_log)
+    # Sous Wine, Marionette et la sortie sont bien plus lents.
+    delay = 600 if WINE else 120
 
     def watch():
         while not any("quit.html" in r["path"] for r in httpd.request_log[seen:]):
             time.sleep(1)
-        while True:
+        # Sortie normale (les .profraw ne sont écrits qu'à la sortie du
+        # processus), forcée si la première ne vient pas.
+        for flags in (["eAttemptQuit"], ["eForceQuit"]):
             try:
-                m = Marionette(port=MARIONETTE_PORT, timeout=60)
-                break
+                m = Marionette(port=MARIONETTE_PORT, timeout=delay, cmd_timeout=delay)
+                m.cmd("Marionette:Quit", {"flags": flags})
             except Exception as e:
-                print("Marionette injoignable (%s), nouvel essai" % e)
-        try:
-            m.cmd("Marionette:Quit", {"flags": ["eAttemptQuit"]})
-        except Exception:
-            pass
+                print("Marionette:Quit %s sans réponse (%s)" % (flags[0], e), flush=True)
+            end = time.time() + delay
+            while runner.is_running() and time.time() < end:
+                time.sleep(1)
+            if not runner.is_running():
+                return
+        print("Core ne quitte pas après Marionette:Quit : processus tué, "
+              "profil PGO de cette passe incomplet", flush=True)
+        runner.stop()
 
     threading.Thread(target=watch, daemon=True).start()
 
@@ -146,7 +166,10 @@ if __name__ == "__main__":
     httpd = MozHttpd(
         port=PORT,
         log_requests=True,
-        urlhandlers=[{"method": "GET", "path": "/index.html", "function": index_without_quitter}],
+        urlhandlers=[
+            {"method": "GET", "path": "/index.html", "function": index_without_quitter},
+            {"method": "GET", "path": "/quit.html", "function": quit_html},
+        ],
         docroot=os.path.join(build.topsrcdir, "build", "pgo"),
         path_mappings=path_mappings,
     )
@@ -250,7 +273,7 @@ if __name__ == "__main__":
             process_args=process_args,
         )
         runner.start()
-        quit_on_quit_page(httpd)
+        quit_on_quit_page(httpd, runner)
         ret = runner.wait()
         if ret:
             print("Firefox exited with code %d during profile initialization" % ret)
@@ -290,7 +313,7 @@ if __name__ == "__main__":
             process_args=process_args,
         )
         runner.start(debug_args=debug_args, interactive=interactive)
-        quit_on_quit_page(httpd)
+        quit_on_quit_page(httpd, runner)
         ret = runner.wait()
         sp3_httpd.stop()
         if has_extended_corpus:
