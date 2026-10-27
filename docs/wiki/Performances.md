@@ -88,10 +88,49 @@ processus : **312 ms** à chaud, **environ 600 ms** à froid (cache disque
 vidé). À froid, comparer des copies fraîches des deux builds : l'emplacement
 des fichiers sur le disque suffit à faire varier le résultat d'environ 7 %.
 
+## JavaScript et WebGL, avec un vrai GPU
+
+**Tests du 26 et 27 octobre 2026**, sur Rycore (Ryzen 9 5900X, 32 Go,
+Radeon RX 9070 XT, Mesa 26.2.4). Rendu sur le GPU via une session KWin hors
+écran (`kwin_wayland --virtual`) : WebRender matériel, WebGL et Canvas2D
+accélérés, bac à sable et Fission actifs. Builds PGO + LTO, 6 passes
+alternées par essai, profil neuf à chaque passe, médianes.
+
+Références de Core 153.5 :
+
+| Mesure | Résultat |
+|---|---|
+| JetStream 3 (préversion) | 168,5 |
+| Speedometer 3 | 26,9 |
+| MotionMark 1.3.1 | 1 985 (1 235 sous Xvfb sans GPU) |
+| WebGL Aquarium, 30 000 poissons | 55,6 i/s |
+| three.js, 10 000 appels de dessin | 67,5 i/s |
+
+Firefox ne règle aucune pref `javascript.*`, `webgl.*`, `gfx.*` ou `layers.*`
+dans `firefox.js` : Core n'en perd donc aucune. Les valeurs par défaut de
+Gecko sont déjà les meilleures (wasm à compilation paresseuse, AVX, marquage
+du GC en parallèle, canvas accéléré ; mitigations Spectre levées seulement
+pour le contenu isolé par Fission). Rien n'est gardé :
+
+| Essai | Effet | Verdict |
+|---|---|---|
+| Nursery du GC à 128 Mo | JetStream −1,2 % | Rejeté |
+| 4 fils de marquage du GC | JetStream +0,8 %, non significatif | Dans le bruit |
+| Plus de fils d'aide au GC | +0,3 % | Dans le bruit |
+| Processus GPU sous Wayland | Reste bloqué par Gecko : passe A/A, bruit ±0,6 % | Sans objet |
+| Compositeur natif de WebRender forcé | MotionMark −9,6 % | Rejeté |
+| Compilation x86-64-v2 (SSE4.2) | JetStream −0,7 % | Rejeté |
+| Rust en opt-level 3 | Neutre | Rejeté |
+| Compilation x86-64-v3 (AVX2), pour info | +0,7 %, casse les CPU sans AVX2 | Rejeté |
+
+Le C et le C++ sont déjà compilés en `-O3` sous PGO. Deux builds PGO
+identiques diffèrent déjà d'environ 0,7 % : c'est le seuil sous lequel une
+option de compilation ne se distingue pas.
+
 ## À mesurer
 
 - Démarrage face à Firefox officiel, et Core empaqueté en omni.ja.
 - Mémoire face à un Firefox ESR 153.5 compilé dans les mêmes conditions (même
   compilateur, mêmes options), pour isoler ce que gagne la coquille seule.
-- MotionMark avec un vrai GPU.
+- Processus GPU sous Linux/X11 (bloqué sous Wayland).
 - Windows et macOS sur du matériel réel.
