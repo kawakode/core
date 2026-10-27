@@ -127,6 +127,38 @@ Le C et le C++ sont déjà compilés en `-O3` sous PGO. Deux builds PGO
 identiques diffèrent déjà d'environ 0,7 % : c'est le seuil sous lequel une
 option de compilation ne se distingue pas.
 
+## Cache de bytecode JavaScript
+
+**Tests du 27 octobre 2026**, mêmes conditions (Rycore, RX 9070 XT, build
+PGO + LTO). Aucun moteur n'accélère une bibliothèque précise : React ou jQuery
+sont minifiés et fondus dans les fichiers de chaque site, et le JIT les traite
+comme n'importe quel JavaScript. Le levier est de ne pas recompiler les mêmes
+scripts à chaque visite : Gecko enregistre le bytecode compilé dans le cache
+disque, mais seulement au 4e chargement d'un script.
+
+Six sites réels enregistrés et servis en local (react.dev, vuejs.org,
+angular.dev, jQuery UI, un exemple three.js, mui.com ; 9,1 Mo de JavaScript),
+un chargement puis cinq visites dans le même profil, 6 passes alternées.
+Temps CPU des processus web, somme des six sites, écart au réglage de Gecko :
+
+| `dom.script_loader.bytecode_cache.strategy` | 2e visite | 3e et 4e visites | 5e et après |
+|---|---|---|---|
+| 0 (Gecko : bytecode au 4e chargement) | référence | référence | référence |
+| **1 (au 2e chargement, gardé)** | = | **−28 % / −25 %**, `load` −12 % | = |
+| −1 (dès le 1er chargement) | −22 à −25 % | −22 à −25 % | = |
+
+Gain net sur 5 sites sur 6 (Vue, 0,2 Mo de JS, ne bouge pas). Premier
+chargement, mémoire et Speedometer 3 inchangés. Une fois écrit, le cache
+occupe la même place quel que soit le réglage (45,5 Mo pour les six sites,
+dont 28 Mo de bytecode). À −1, ce bytecode serait écrit aussi pour chaque
+script vu une seule fois : Core garde 1.
+
+Écartés : le cache des scripts en mémoire
+(`dom.script_loader.experimental.navigation_cache`, « testing only »), −48 %
+de CPU dans une session mais rien sur disque, d'où +24 % après un redémarrage
+et un premier affichage retardé (Angular +75 %). La délazification et la
+compilation hors du thread principal sont déjà au plus agressif dans Gecko.
+
 ## À mesurer
 
 - Démarrage face à Firefox officiel, et Core empaqueté en omni.ja.
