@@ -127,6 +127,53 @@ Le C et le C++ sont déjà compilés en `-O3` sous PGO. Deux builds PGO
 identiques diffèrent déjà d'environ 0,7 % : c'est le seuil sous lequel une
 option de compilation ne se distingue pas.
 
+## GPU : Core face à Firefox ESR, préférences graphiques
+
+**Tests du 27 octobre 2026**, mêmes conditions que ci-dessus (Rycore,
+RX 9070 XT, KWin hors écran). Core main (Gecko 153.5.1, PGO + LTO) contre
+Firefox ESR 153.5.1 officiel de Mozilla, 6 passes alternées. about:support
+est identique dans les deux : WebRender matériel, WebGL sur le GPU, Canvas2D
+accéléré, décodage VA-API (H.264, VP9, AV1, HEVC).
+
+| Mesure | Core | Firefox ESR | Écart |
+|---|---|---|---|
+| Speedometer 3 | 27,1 | 26,9 | +0,9 %, bruit |
+| MotionMark 1.3.1 | 1 999 | 1 990 | +0,5 %, bruit |
+| Aquarium, 5 000 poissons | 287,5 i/s | 278,5 i/s | +3,1 % |
+| Aquarium, 30 000 poissons | 55,1 i/s | 54,7 i/s | bruit |
+| three.js, 10 000 appels de dessin | 67,5 i/s | 67,1 i/s | bruit |
+| three.js, 100 000 instances | 163,5 i/s | 163,9 i/s | bruit |
+| Vidéo AV1 4K60, CPU (`video.py`) | **8,8 %** | 14,1 % | −37 % |
+| Vidéo H.264 4K60, CPU | **10,4 %** | 15,0 % | −31 % |
+
+Même moteur, même débit ; la lecture vidéo coûte moins de CPU dans Core
+(décodeur du GPU occupé à 35 % dans les deux, aucune image perdue), sans doute
+parce qu'il fait tourner moins de choses autour. Sans VA-API
+(`media.hardware-video-decoding.enabled=false`), la même vidéo AV1 prend
+109 % de CPU : le décodage matériel est bien actif par défaut.
+
+Préférences essayées sur Core (A = réglages de Gecko) :
+
+| Essai | Effet | Verdict |
+|---|---|---|
+| **Tampon de commandes WebGL à 1 Mo** (`webgl.out-of-process.shmem-size`, 100 Ko dans Gecko) | Aquarium 5 000 **+12,8 %**, 30 000 **+5,4 %**, three.js 10 000 appels **+3,9 %**, 2 000 appels +2,9 % (p ≤ 0,016, confirmé sur une 2e série) | **Gardé (Linux)** |
+| Même tampon à 400 Ko | Aquarium 30 000 +0,5 % seulement | 1 Mo vaut mieux |
+| Même tampon à 4 Mo | Comme 1 Mo, un peu moins sur Aquarium 30 000 | 1 Mo suffit |
+| Cache du Canvas2D accéléré à 512 Mo, tampon canvas à 128 Ko | MotionMark −1,2 %, bruit | Rejeté |
+| `widget.dmabuf-feedback.enabled` | MotionMark +3,2 % (p = 0,39), Aquarium = | Bruit |
+| Décodage vidéo par Vulkan | Retombe en décodage logiciel : CPU ×11 | Rejeté |
+| Cache disque des shaders WebRender (`gfx.webrender.program-binary-disk`) | Premier affichage 386 ms contre 388 ms | Sans effet |
+
+Avec ce réglage dans `core.js`, contre Firefox ESR (4 passes) : Aquarium
+5 000 poissons **322,6 contre 278,2 i/s (+16 %)**, 30 000 poissons **59,2
+contre 54,7 (+8 %)**, three.js 10 000 appels **70,0 contre 67,6 (+3,6 %)**.
+
+Le tampon de commandes WebGL est rempli par la page puis envoyé au processus
+de rendu ; plein, il part avant la fin de l'image. À 1 Mo, une page qui
+dessine beaucoup l'envoie jusqu'à dix fois moins souvent. Le coût est d'au
+plus 1 Mo par contexte WebGL actif. Pas encore mesuré sous Windows : la valeur
+n'est réglée que sous Linux.
+
 ## Cache de bytecode JavaScript
 
 **Tests du 27 octobre 2026**, mêmes conditions (Rycore, RX 9070 XT, build

@@ -45,6 +45,14 @@ pref("browser.sessionhistory.max_total_viewers", 1);
 // pour les scripts vus une seule fois (mesures du 27/10/2026).
 pref("dom.script_loader.bytecode_cache.strategy", 1);
 
+#ifdef XP_LINUX
+// Tampon des commandes WebGL envoyées au processus de rendu : 1 Mo au lieu
+// de 100 Ko, donc dix fois moins d'envois quand une page dessine beaucoup.
+// Sur GPU (RX 9070 XT) : Aquarium +5 à +13 %, three.js +3 à +4 % (mesures du
+// 27/10/2026) ; 4 Mo n'apporte rien de plus. Pas encore mesuré sous Windows.
+pref("webgl.out-of-process.shmem-size", 1000000);
+#endif
+
 // Sécurité. Firefox règle ces valeurs dans browser/app/profile/firefox.js,
 // que Core n'embarque pas : sans elles, Gecko retombe sur ses propres valeurs
 // par défaut (sandbox de contenu au niveau 0 sous Linux, extensions dans le
