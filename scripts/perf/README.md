@@ -9,6 +9,8 @@ Gecko (`core/scripts/perf/...`). Chaque mesure est un A/B : passes alternées
 - `bench.py` : JavaScript et WebGL (JetStream 3, Speedometer 3,
   MotionMark 1.3.1, WebGL Aquarium, three.js), B = autre binaire (`CORE_B`)
   ou préférences en plus (`PREFS_B`).
+- `video.py` : lecture vidéo (4K AV1, H.264...) : CPU, décodeur vidéo du GPU,
+  images perdues ; B = autre binaire ou préférences en plus.
 - `summarize.py` : médiane, min-max, écart et test de Mann-Whitney d'un CSV de
   `bench.py` ; `subtests.py` : sous-tests JetStream les plus marqués.
 
