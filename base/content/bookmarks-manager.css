@@ -2,13 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* Gestionnaire de marque-pages : mêmes variables que l'interface
- * (tokens.css), dossiers à gauche, contenu à droite. */
+/* Gestionnaire de marque-pages : pages.css (couleurs, champs, boutons),
+ * dossiers à gauche, contenu à droite, sur toute la hauteur. */
 
 html,
 body {
   height: 100%;
-  margin: 0;
 }
 
 body {
@@ -16,16 +15,7 @@ body {
   flex-direction: column;
   box-sizing: border-box;
   max-width: 1080px;
-  margin: 0 auto;
   padding: 16px 24px;
-  background: var(--core-bg-raised);
-  color: var(--core-text);
-  font: menu;
-}
-
-:focus-visible {
-  outline: 2px solid var(--core-accent);
-  outline-offset: 1px;
 }
 
 header {
@@ -37,62 +27,16 @@ header {
 h1 {
   flex: 1;
   margin: 0;
-  font-size: 1.4em;
-  font-weight: 600;
 }
 
 h2 {
   margin: 0 0 8px;
   font-size: 1.1em;
-  font-weight: 600;
-}
-
-input {
-  appearance: none;
-  height: var(--core-field-height);
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0 8px;
-  border: 1px solid var(--core-border);
-  border-radius: var(--core-radius-small);
-  background: var(--core-bg);
-  color: var(--core-text);
-  font: inherit;
-}
-
-input:focus {
-  border: 2px solid var(--core-accent);
-  padding: 0 7px;
-  outline: none;
-}
-
-input[invalid] {
-  border-color: var(--core-danger);
+  color: inherit;
 }
 
 #search {
   width: 240px;
-}
-
-button {
-  appearance: none;
-  height: 28px;
-  margin: 0;
-  padding: 0 12px;
-  border: 1px solid var(--core-border);
-  border-radius: var(--core-radius-small);
-  background: var(--core-bg-raised);
-  color: var(--core-text);
-  font: inherit;
-  transition: background-color var(--core-transition);
-}
-
-button:hover {
-  background-color: var(--core-bg-hover);
-}
-
-button:hover:active {
-  background-color: var(--core-bg-active);
 }
 
 #status {
