@@ -338,8 +338,9 @@ body {
   mask-image: linear-gradient(to left, transparent, black 24px);
 }
 
+/* 24 px : la plus petite cible de clic admise (design.md, section 9). */
 .tab-close {
-  --core-button-size: 20px;
+  --core-button-size: 24px;
 }
 
 #newtab {
@@ -350,9 +351,15 @@ body {
   visibility: hidden;
 }
 
-/* Menu ≡ : le menu de toolkit, en aplat, sans ombre. */
+/* Menus et panneaux (menu ≡, téléchargements, marque-pages) : le popup de
+ * toolkit en aplat, bordure de 1 px, sans ombre. Une seule règle pour tous ;
+ * les sous-menus héritent des variables. */
 
-#app-menu {
+#app-menu,
+#download-menu,
+#downloads-panel,
+#bookmark-panel,
+.bookmarks-popup {
   --panel-background-color: var(--core-bg-raised);
   --panel-text-color: var(--core-text);
   --panel-border-color: var(--core-border);
@@ -360,19 +367,23 @@ body {
   --panel-box-shadow: none;
   --panel-box-shadow-margin: 0px;
   --menuitem-border-radius: var(--core-radius-small);
+}
+
+#app-menu {
   min-width: 200px;
 }
 
-#app-menu > menuitem {
+:is(#app-menu, #download-menu, .bookmarks-popup) :is(menuitem, menu) {
   min-height: 28px;
+  max-width: 420px;
 }
 
-#app-menu > menuitem[_moz-menuactive] {
+:is(#app-menu, #download-menu, .bookmarks-popup) :is(menuitem, menu)[_moz-menuactive] {
   background-color: var(--core-bg-hover);
   color: var(--core-text);
 }
 
-#app-menu > menuitem > .menu-accel {
+:is(#app-menu, #download-menu, .bookmarks-popup) .menu-accel {
   color: var(--core-text-muted);
 }
 
@@ -449,12 +460,6 @@ body {
 }
 
 #downloads-panel {
-  --panel-background-color: var(--core-bg-raised);
-  --panel-text-color: var(--core-text);
-  --panel-border-color: var(--core-border);
-  --panel-border-radius: var(--core-radius);
-  --panel-box-shadow: none;
-  --panel-box-shadow-margin: 0px;
   --panel-padding: 4px;
 }
 
@@ -599,10 +604,6 @@ body {
   transform: scaleX(var(--download-progress, 0));
 }
 
-.download-action {
-  -moz-context-properties: stroke;
-}
-
 .download-action[kind="cancel"] {
   background-image: url("chrome://core/content/icons/close.svg");
 }
@@ -617,19 +618,4 @@ body {
 
 .download:not(:hover, :focus-within) > .download-action[kind="folder"] {
   visibility: hidden;
-}
-
-#download-menu {
-  --panel-background-color: var(--core-bg-raised);
-  --panel-text-color: var(--core-text);
-  --panel-border-color: var(--core-border);
-  --panel-border-radius: var(--core-radius);
-  --panel-box-shadow: none;
-  --panel-box-shadow-margin: 0px;
-  --menuitem-border-radius: var(--core-radius-small);
-}
-
-#download-menu > menuitem[_moz-menuactive] {
-  background-color: var(--core-bg-hover);
-  color: var(--core-text);
 }
