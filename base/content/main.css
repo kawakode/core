@@ -323,7 +323,7 @@ body {
 }
 
 .tab:hover {
-  background-color: var(--core-bg-hover);
+  background-color: var(--core-tab-hover);
 }
 
 .tab[selected] {
@@ -336,7 +336,7 @@ body {
   flex: 1;
   overflow: hidden;
   white-space: nowrap;
-  mask-image: linear-gradient(to left, transparent, black 24px);
+  mask-image: linear-gradient(to left, transparent, black 2.5em);
 }
 
 /* 24 px : la plus petite cible de clic admise (design.md, section 9). */
@@ -564,7 +564,7 @@ body {
 .download-status {
   overflow: hidden;
   white-space: nowrap;
-  mask-image: linear-gradient(to left, transparent, black 24px);
+  mask-image: linear-gradient(to left, transparent, black 2.5em);
 }
 
 .download-status {

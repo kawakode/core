@@ -11,6 +11,8 @@
   --core-bg-raised: #ffffff;
   --core-bg-hover: rgb(0 0 0 / 6%);
   --core-bg-active: rgb(0 0 0 / 11%);
+  /* Survol d'un onglet : en sombre, plus discret que l'onglet actif. */
+  --core-tab-hover: var(--core-bg-hover);
   --core-text: #1b1b1f;
   --core-text-muted: #5c5c66;
   --core-border: #dcdce1;
@@ -31,6 +33,7 @@
     --core-bg-raised: #2b2b31;
     --core-bg-hover: rgb(255 255 255 / 8%);
     --core-bg-active: rgb(255 255 255 / 14%);
+    --core-tab-hover: rgb(255 255 255 / 4%);
     --core-text: #ececf1;
     --core-text-muted: #a3a3ad;
     --core-border: #36363d;
@@ -64,6 +67,7 @@
     --core-bg-raised: Canvas;
     --core-bg-hover: Canvas;
     --core-bg-active: Canvas;
+    --core-tab-hover: Canvas;
     --core-text: CanvasText;
     --core-text-muted: CanvasText;
     --core-border: CanvasText;
