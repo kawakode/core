@@ -19,7 +19,8 @@ body {
   font: menu;
 }
 
-:focus-visible {
+/* Pas de contour autour de la page elle-même quand elle a le focus. */
+:focus-visible:not(browser) {
   outline: 2px solid var(--core-accent);
   outline-offset: 1px;
 }

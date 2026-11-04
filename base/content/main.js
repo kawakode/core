@@ -710,6 +710,14 @@ window.addEventListener(
     window.AppConstants = AppConstants;
     window.E10SUtils = E10SUtils;
 
+    // Fenêtre privée : tokens.css passe l'accent en violet.
+    var { PrivateBrowsingUtils } = ChromeUtils.importESModule(
+      "resource://gre/modules/PrivateBrowsingUtils.sys.mjs"
+    );
+    if (PrivateBrowsingUtils.isWindowPrivate(window)) {
+      document.documentElement.setAttribute("privatebrowsingmode", "temporary");
+    }
+
     gToolbar.init();
     gTitlebar.init();
     gDownloads.init().catch(console.error);
