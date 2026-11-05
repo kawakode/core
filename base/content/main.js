@@ -805,6 +805,10 @@ window.addEventListener(
 
     gBrowserInit.delayedStartupFinished = true;
     Services.obs.notifyObservers(window, "browser-delayed-startup-finished");
+    // Lance les pages d'arrière-plan des extensions déjà installées : Firefox
+    // le fait après « sessionstore-windows-restored », que Core n'envoie pas
+    // (même notification que browser/fxr/content/fxrui.js).
+    Services.obs.notifyObservers(window, "extensions-late-startup");
     Services.tm.idleDispatchToMainThread(() =>
       Services.obs.notifyObservers(null, "browser-idle-startup-tasks-finished")
     );

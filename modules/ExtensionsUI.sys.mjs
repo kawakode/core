@@ -102,7 +102,9 @@ function confirmPermissions(browser, info, { title, accept, install } = {}) {
   lines.push(header);
   if (strings.msgs.length) {
     lines.push("");
-    if (strings.listIntro) {
+    // Pour une extension non vérifiée, l'introduction de toolkit (en anglais)
+    // répète l'avertissement ci-dessus.
+    if (strings.listIntro && !info.unsigned) {
       lines.push(strings.listIntro);
     }
     lines.push(...strings.msgs.map(msg => `• ${msg}`));
@@ -120,7 +122,7 @@ function confirmPermissions(browser, info, { title, accept, install } = {}) {
     lines.join("\n"),
     flags,
     accept ?? (info.unsigned ? "Ajouter quand même" : (strings.acceptText ?? "Ajouter")),
-    strings.cancelText ?? "Annuler",
+    info.unsigned ? "Annuler" : (strings.cancelText ?? "Annuler"),
     null,
     null,
     {}

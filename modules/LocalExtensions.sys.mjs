@@ -97,9 +97,11 @@ class DirSource {
     );
     stream.init(file, -1, -1, 0);
     try {
-      return lazy.NetUtil.readInputStreamToString(stream, stream.available(), {
-        charset: "UTF-8",
-      });
+      // readInputStreamToString refuse une longueur nulle.
+      let count = stream.available();
+      return count
+        ? lazy.NetUtil.readInputStreamToString(stream, count, { charset: "UTF-8" })
+        : "";
     } finally {
       stream.close();
     }
@@ -157,9 +159,11 @@ class ZipSource {
     }
     let stream = this.reader.getInputStream(name);
     try {
-      return lazy.NetUtil.readInputStreamToString(stream, stream.available(), {
-        charset: "UTF-8",
-      });
+      // readInputStreamToString refuse une longueur nulle.
+      let count = stream.available();
+      return count
+        ? lazy.NetUtil.readInputStreamToString(stream, count, { charset: "UTF-8" })
+        : "";
     } finally {
       stream.close();
     }
@@ -221,6 +225,9 @@ function tempXPI() {
 // Renvoie { file, temporary } : le fichier à donner au gestionnaire
 // d'extensions, et s'il faut le supprimer après l'installation.
 function prepare(file) {
+  if (!file.exists()) {
+    throw new InstallError("ce fichier n'existe plus.");
+  }
   let isDir = file.isDirectory();
   let source = isDir ? new DirSource(file) : new ZipSource(file);
   try {
