@@ -16,6 +16,10 @@ const { PlacesUtils } = ChromeUtils.importESModule(
 // Lignes chargées à la fois ; les suivantes arrivent en faisant défiler.
 const PAGE_SIZE = 150;
 
+// Heures et dates dans la langue de l'interface (« Aujourd'hui », « Hier »
+// sont en français), pas dans celle du moteur (en-US).
+const UI_LOCALE = "fr";
+
 const gHistory = {
   // Nombre de lignes affichées, recherche en cours, dernier jour affiché.
   shown: 0,
@@ -155,7 +159,7 @@ const gHistory = {
       entry.setAttribute("role", "listitem");
       let time = document.createElement("span");
       time.className = "time";
-      time.textContent = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+      time.textContent = date.toLocaleTimeString(UI_LOCALE, { hour: "2-digit", minute: "2-digit" });
       let label = document.createElement("span");
       label.className = "title";
       label.textContent = title || url;
@@ -292,7 +296,7 @@ function dayLabel(date) {
   if (date.getFullYear() != today.getFullYear()) {
     options.year = "numeric";
   }
-  let label = date.toLocaleDateString(undefined, options);
+  let label = date.toLocaleDateString(UI_LOCALE, options);
   return label[0].toUpperCase() + label.slice(1);
 }
 

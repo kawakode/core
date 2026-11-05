@@ -2,15 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* Pages internes (historique…) : mêmes variables que l'interface, une
- * colonne centrée, rien à télécharger (design.md, section 6). */
+/* Pages internes (historique, marque-pages, réglages) : mêmes variables
+ * que l'interface, une colonne centrée, rien à télécharger (design.md,
+ * section 6). Champs, boutons et focus ne sont définis qu'ici. */
 
 @import url("chrome://core/content/tokens.css");
 
 html {
   background: var(--core-bg-raised);
   color: var(--core-text);
-  font: message-box;
+  font: menu;
+  accent-color: var(--core-accent);
 }
 
 body {
@@ -37,10 +39,12 @@ h2 {
   outline-offset: 1px;
 }
 
-input[type="search"],
+input:is([type="search"], [type="text"]),
 select,
 button {
+  appearance: none;
   height: var(--core-field-height);
+  box-sizing: border-box;
   margin: 0;
   border: 1px solid var(--core-border);
   border-radius: var(--core-radius-small);
@@ -49,14 +53,27 @@ button {
   font: inherit;
 }
 
-input[type="search"] {
+/* Champs : même fond que la barre d'adresse, bordure d'accent au focus. */
+input:is([type="search"], [type="text"]) {
   padding: 0 8px;
+  background: var(--core-bg);
 }
 
-input[type="search"]:focus {
+input:is([type="search"], [type="text"]):focus {
   outline: none;
   border: 2px solid var(--core-accent);
   padding: 0 7px;
+}
+
+input[invalid] {
+  border-color: var(--core-danger);
+}
+
+select {
+  padding: 0 24px 0 8px;
+  background: var(--core-bg-raised) url("chrome://global/skin/icons/arrow-down.svg") right 6px center / 12px no-repeat;
+  -moz-context-properties: fill;
+  fill: currentColor;
 }
 
 button {
@@ -70,6 +87,17 @@ button:hover {
 
 button:hover:active {
   background-color: var(--core-bg-active);
+}
+
+button.primary,
+button.primary:hover:active {
+  border-color: var(--core-accent);
+  background-color: var(--core-accent);
+  color: var(--core-bg-raised);
+}
+
+button.primary:hover {
+  opacity: 0.9;
 }
 
 .icon-button {

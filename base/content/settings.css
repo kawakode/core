@@ -2,24 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+/* Fenêtre des réglages : pages.css (couleurs, champs, boutons) dans une
+ * fenêtre étroite. */
+
 body {
-  margin: 0;
   padding: 16px 20px;
-  font: message-box;
-}
-
-h1 {
-  margin: 0 0 12px;
-  font-size: 1.3em;
-}
-
-.help {
-  margin: 4px 0 0 24px;
-  opacity: 0.8;
-}
-
-#restart-needed {
-  margin-top: 12px;
 }
 
 section + section {
@@ -28,7 +15,6 @@ section + section {
 
 h2 {
   margin: 0 0 4px;
-  font-size: 1.1em;
 }
 
 section > label {
@@ -36,11 +22,29 @@ section > label {
   margin-top: 4px;
 }
 
+section > label > input {
+  margin: 0 6px 0 0;
+  vertical-align: middle;
+}
+
+.help {
+  margin: 2px 0 0 24px;
+  color: var(--core-text-muted);
+}
+
+#restart-needed {
+  margin-top: 12px;
+}
+
+#restart {
+  margin-inline-start: 8px;
+}
+
 #downloads-dir-path {
   font-weight: 600;
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 #downloads-dir-change {
-  margin-inline-start: 4px;
+  margin-inline-start: 8px;
 }

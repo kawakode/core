@@ -117,7 +117,8 @@ const gManager = {
     );
 
     await this.render();
-    list.focus();
+    // Focus sans contour : il n'apparaît qu'au premier usage du clavier.
+    list.focus({ focusVisible: false });
   },
 
   // Changements dans Places, d'ici ou d'ailleurs : un seul rendu par image.

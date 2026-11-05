@@ -22,39 +22,6 @@
   display: none;
 }
 
-/* Menus des marque-pages et sous-menus du menu ≡ : même aplat que le
- * menu ≡ (main.css). */
-.bookmarks-popup,
-#bookmark-panel {
-  --panel-background-color: var(--core-bg-raised);
-  --panel-text-color: var(--core-text);
-  --panel-border-color: var(--core-border);
-  --panel-border-radius: var(--core-radius);
-  --panel-box-shadow: none;
-  --panel-box-shadow-margin: 0px;
-  --menuitem-border-radius: var(--core-radius-small);
-}
-
-.bookmarks-popup > menuitem,
-.bookmarks-popup > menu,
-#app-menu menupopup > menuitem,
-#app-menu menupopup > menu,
-#app-menu > menu {
-  min-height: 28px;
-  max-width: 420px;
-}
-
-.bookmarks-popup > :is(menuitem, menu)[_moz-menuactive],
-#app-menu menupopup > :is(menuitem, menu)[_moz-menuactive],
-#app-menu > menu[_moz-menuactive] {
-  background-color: var(--core-bg-hover);
-  color: var(--core-text);
-}
-
-#app-menu menupopup > menuitem > .menu-accel {
-  color: var(--core-text-muted);
-}
-
 /* Barre de marque-pages : une ligne de 28 px sous la barre d'outils,
  * défilement à la molette au-delà de la largeur. */
 #bookmarks-bar {
@@ -173,7 +140,7 @@
 #bookmark-panel-buttons > button {
   appearance: none;
   min-width: 88px;
-  height: 28px;
+  height: var(--core-field-height);
   padding: 0 12px;
   border: 1px solid var(--core-border);
   border-radius: var(--core-radius-small);

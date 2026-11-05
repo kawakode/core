@@ -1,0 +1,84 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* Pages d'erreur de toolkit (about:neterror, about:certerror) aux
+ * couleurs de Core : ajoutée par CoreErrorPageChild. On remplace les
+ * variables du design system de toolkit plutôt que ses règles, et
+ * html:root l'emporte sur le :root de toolkit quel que soit l'ordre des
+ * feuilles. Colonne de 560 px (design.md, section 6). */
+
+@import url("chrome://core/content/tokens.css");
+
+html:root {
+  --background-color-canvas: var(--core-bg-raised);
+  --background-color-box: var(--core-bg);
+  --text-color: var(--core-text);
+  --border-color: var(--core-border);
+  --link-color: var(--core-accent);
+  --link-color-hover: var(--core-accent);
+  --link-color-active: var(--core-accent);
+  --focus-outline-color: var(--core-accent);
+  --font-weight-bold: 600;
+  --in-content-container-max-width: 560px;
+
+  --button-border-radius: var(--core-radius-small);
+  --button-min-height: var(--core-field-height);
+  --button-font-weight: normal;
+  --button-background-color: var(--core-bg-raised);
+  --button-background-color-hover: var(--core-bg);
+  --button-background-color-active: var(--core-bg);
+  --button-border-color: var(--core-border);
+  --button-border-color-hover: var(--core-border);
+  --button-border-color-active: var(--core-border);
+  --button-text-color: var(--core-text);
+  --button-text-color-hover: var(--core-text);
+  --button-text-color-active: var(--core-text);
+  --button-background-color-primary: var(--core-accent);
+  --button-background-color-primary-hover: var(--core-accent);
+  --button-background-color-primary-active: var(--core-accent);
+  --button-border-color-primary: var(--core-accent);
+  --button-border-color-primary-hover: var(--core-accent);
+  --button-border-color-primary-active: var(--core-accent);
+  --button-text-color-primary: var(--core-bg-raised);
+  --button-text-color-primary-hover: var(--core-bg-raised);
+  --button-text-color-primary-active: var(--core-bg-raised);
+
+  background: var(--core-bg-raised);
+  color: var(--core-text);
+}
+
+html:root body {
+  font: menu;
+  font-size: 1.1em;
+}
+
+html:root .title,
+html:root .title-text {
+  font-size: 1.4em;
+  font-weight: 600;
+}
+
+html:root .title-text {
+  font-size: inherit;
+}
+
+html:root button {
+  padding-block: 0;
+  padding-inline: 12px;
+  transition: opacity var(--core-transition);
+}
+
+html:root button.primary:hover {
+  opacity: 0.9;
+}
+
+html:root #badCertAdvancedPanel,
+html:root .trr-message-container {
+  border-radius: var(--core-radius);
+}
+
+html:root #advancedPanelButtonContainer {
+  background: transparent;
+  padding-inline: 0;
+}
