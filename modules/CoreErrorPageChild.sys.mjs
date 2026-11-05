@@ -9,6 +9,10 @@ const SHEET = "chrome://core/content/errorpage.css";
 
 export class CoreErrorPageChild extends JSWindowActorChild {
   handleEvent() {
+    // Fenêtre privée : accent violet, comme l'interface (tokens.css).
+    if (this.docShell.QueryInterface(Ci.nsILoadContext).usePrivateBrowsing) {
+      this.document.documentElement.setAttribute("privatebrowsingmode", "temporary");
+    }
     this.contentWindow.windowUtils.loadSheetUsingURIString(
       SHEET,
       this.contentWindow.windowUtils.AUTHOR_SHEET

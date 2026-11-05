@@ -230,15 +230,20 @@ var gTabs = {
 
   watch(entry) {
     let { browser } = entry;
-    browser.addEventListener("pagetitlechanged", () => {
-      let label = browser.contentTitle || browser.currentURI.spec;
+    let updateLabel = () => {
+      let spec = browser.currentURI.spec;
+      let label = browser.contentTitle || (spec == "about:blank" ? "Nouvel onglet" : spec);
+      if (label == entry.title.textContent) {
+        return;
+      }
       entry.title.textContent = label;
       entry.tab.title = label;
       if (entry == this.selected) {
         gToolbar.updateTitle(label);
       }
       this.dispatch(entry, "TabAttrModified", { changed: ["label"] });
-    });
+    };
+    browser.addEventListener("pagetitlechanged", updateLabel);
 
     // Un onglet qui joue du son n'est jamais déchargé.
     browser.addEventListener("DOMAudioPlaybackStarted", () => {
@@ -266,6 +271,8 @@ var gTabs = {
           !(flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT)
         ) {
           gTabs.setIcon(browser, null);
+          // Page revenue du cache (Précédent) : pas de pagetitlechanged.
+          updateLabel();
         }
         if (webProgress.isTopLevel && entry == gTabs.selected) {
           gToolbar.update();

@@ -43,7 +43,8 @@ const ERRORS = {
 };
 
 function windowFor(browser) {
-  return browser?.ownerGlobal ?? Services.wm.getMostRecentWindow("navigator:browser");
+  // ownerGlobal n'existe que dans le browser/ de Firefox.
+  return browser?.ownerDocument?.defaultView ?? Services.wm.getMostRecentWindow("navigator:browser");
 }
 
 function alert(browser, message) {

@@ -11,6 +11,6 @@ export class CoreTabIconParent extends JSWindowActorParent {
       return;
     }
     let browser = this.browsingContext.top.embedderElement;
-    browser?.ownerGlobal.gTabs?.setIcon(browser, data.dataURL, data.pageURL);
+    browser?.ownerDocument.defaultView.gTabs?.setIcon(browser, data.dataURL, data.pageURL);
   }
 }
