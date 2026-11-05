@@ -7,6 +7,7 @@ EXTRA_JS_MODULES += [
     "BuiltInThemes.sys.mjs",
     "CoreBookmarks.sys.mjs",
     "CoreCertErrorChild.sys.mjs",
+    "CoreErrorPageChild.sys.mjs",
     "CoreTabIconChild.sys.mjs",
     "CoreTabIconParent.sys.mjs",
     "ExtensionsUI.sys.mjs",

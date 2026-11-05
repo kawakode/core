@@ -20,6 +20,15 @@ CoreGlue.prototype = {
     ChromeUtils.importESModule(
       "resource://gre/modules/ActorManagerParent.sys.mjs"
     );
+    // Pages d'erreur aux couleurs de Core.
+    ChromeUtils.registerWindowActor("CoreErrorPage", {
+      child: {
+        esModuleURI: "resource:///modules/CoreErrorPageChild.sys.mjs",
+        events: { DOMDocElementInserted: {} },
+      },
+      matches: ["about:neterror?*", "about:certerror?*"],
+      allFrames: true,
+    });
     // Présentation et réponse par défaut de la page de certificat invalide.
     ChromeUtils.registerWindowActor("CoreCertError", {
       child: {

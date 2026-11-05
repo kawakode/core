@@ -9,6 +9,7 @@ core.jar:
   content/core/main.css    (content/main.css)
   content/core/downloads.js  (content/downloads.js)
   content/core/certerror.css  (content/certerror.css)
+  content/core/errorpage.css  (content/errorpage.css)
   content/core/tokens.css  (content/tokens.css)
   content/core/icons/      (content/icons/*.svg)
   content/core/settings.xhtml  (content/settings.xhtml)
