@@ -31,6 +31,22 @@ CoreGlue.prototype = {
       },
       matches: ["about:certerror?*"],
     });
+    // Icône du site dans l'onglet.
+    ChromeUtils.registerWindowActor("CoreTabIcon", {
+      parent: {
+        esModuleURI: "resource:///modules/CoreTabIconParent.sys.mjs",
+      },
+      child: {
+        esModuleURI: "resource:///modules/CoreTabIconChild.sys.mjs",
+        events: {
+          DOMLinkAdded: {},
+          DOMLinkChanged: {},
+          pageshow: {},
+          pagehide: {},
+        },
+      },
+      messageManagerGroups: ["browsers"],
+    });
     // Questions posées pendant l'installation d'une extension.
     ChromeUtils.importESModule(
       "resource:///modules/ExtensionsUI.sys.mjs"

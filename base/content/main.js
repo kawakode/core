@@ -24,6 +24,10 @@ var gTabs = {
     let tab = document.createElement("div");
     tab.className = "tab";
     tab.setAttribute("role", "tab");
+    let icon = document.createElement("img");
+    icon.className = "tab-icon";
+    icon.alt = "";
+    icon.hidden = true;
     let title = document.createElement("span");
     title.className = "tab-title";
     title.textContent = "Nouvel onglet";
@@ -31,11 +35,11 @@ var gTabs = {
     close.className = "tab-close icon-button";
     close.title = "Fermer l'onglet (Ctrl+W)";
     close.setAttribute("aria-label", "Fermer l'onglet");
-    tab.append(title, close);
+    tab.append(icon, title, close);
 
     // browser est null quand l'onglet est déchargé ; unloaded garde alors
     // de quoi le recharger.
-    let entry = { browser: null, tab, title, lastSeen: Date.now(), unloaded: null };
+    let entry = { browser: null, tab, icon, title, lastSeen: Date.now(), unloaded: null };
     // L'élément de l'onglet sert d'onglet « natif » aux extensions
     // (core/extensions/parent/ext-core.js) et à WebDriver.
     tab.entry = entry;
@@ -196,6 +200,7 @@ var gTabs = {
     }
     entry.unloaded = { uri };
     entry.tab.setAttribute("unloaded", "true");
+    entry.tab.removeAttribute("busy");
     entry.browser.remove();
     entry.browser = null;
     this.dispatch(entry, "TabBrowserDiscarded");
@@ -253,13 +258,29 @@ var gTabs = {
         "nsIWebProgressListener",
         "nsISupportsWeakReference",
       ]),
-      onLocationChange(webProgress, ...args) {
+      onLocationChange(webProgress, request, location, flags) {
+        // Nouvelle page : l'icône de la précédente disparaît, la nouvelle
+        // arrive par CoreTabIcon.
+        if (
+          webProgress.isTopLevel &&
+          !(flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT)
+        ) {
+          gTabs.setIcon(browser, null);
+        }
         if (webProgress.isTopLevel && entry == gTabs.selected) {
           gToolbar.update();
         }
-        gTabs.notifyProgress("onLocationChange", browser, webProgress, ...args);
+        gTabs.notifyProgress("onLocationChange", browser, webProgress, request, location, flags);
       },
       onStateChange(webProgress, request, stateFlags, ...args) {
+        // Trait de chargement sous l'onglet (main.css, .tab[busy]).
+        if (webProgress.isTopLevel && stateFlags & Ci.nsIWebProgressListener.STATE_IS_NETWORK) {
+          if (stateFlags & Ci.nsIWebProgressListener.STATE_START) {
+            entry.tab.setAttribute("busy", "true");
+          } else if (stateFlags & Ci.nsIWebProgressListener.STATE_STOP) {
+            entry.tab.removeAttribute("busy");
+          }
+        }
         if (
           webProgress.isTopLevel &&
           stateFlags & Ci.nsIWebProgressListener.STATE_IS_NETWORK &&
@@ -277,6 +298,29 @@ var gTabs = {
         Ci.nsIWebProgress.NOTIFY_STATE_NETWORK |
         Ci.nsIWebProgress.NOTIFY_STATE_WINDOW
     );
+  },
+
+  // Icône du site (CoreTabIconParent), null pour l'effacer. pageURL écarte
+  // une icône arrivée après que l'onglet a changé de page.
+  setIcon(browser, dataURL, pageURL = null) {
+    let entry = this.list.find(e => e.browser == browser);
+    if (!entry) {
+      return;
+    }
+    if (pageURL && pageURL.split("#")[0] != browser.currentURI.spec.split("#")[0]) {
+      return;
+    }
+    if ((entry.iconURL ?? null) == dataURL) {
+      return;
+    }
+    entry.iconURL = dataURL;
+    entry.icon.hidden = !dataURL;
+    if (dataURL) {
+      entry.icon.src = dataURL;
+    } else {
+      entry.icon.removeAttribute("src");
+    }
+    this.dispatch(entry, "TabAttrModified", { changed: ["image"] });
   },
 
   addTabsProgressListener(listener) {

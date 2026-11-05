@@ -218,6 +218,21 @@ body {
   min-width: 24px;
 }
 
+#private-indicator {
+  display: none;
+  flex: none;
+  align-self: center;
+  width: var(--core-button-size);
+  height: var(--core-button-size);
+  background: url("chrome://core/content/icons/private.svg") center / 16px no-repeat;
+  -moz-context-properties: stroke;
+  stroke: var(--core-accent);
+}
+
+:root[privatebrowsingmode] #private-indicator {
+  display: block;
+}
+
 #window-controls {
   display: none;
   align-self: center;
@@ -329,6 +344,48 @@ body {
 .tab[selected] {
   background-color: var(--core-bg-raised);
   color: var(--core-text);
+}
+
+/* Icône du site (CoreTabIcon), absente tant que la page n'en a pas. */
+.tab-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.tab-icon[hidden] {
+  display: none;
+}
+
+/* Chargement : un trait de 2 px sous l'onglet, qui avance par transform
+ * (sans recalcul de la mise en page) et disparaît à la fin. L'animation
+ * s'arrête d'elle-même ; rien ne tourne en boucle. */
+.tab[busy]::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--core-accent);
+  transform-origin: left;
+  transform: scaleX(0.9);
+  animation: tab-loading 4s cubic-bezier(0.1, 0.6, 0.3, 1) backwards;
+  pointer-events: none;
+}
+
+@keyframes tab-loading {
+  from {
+    transform: scaleX(0.05);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab[busy]::after {
+    animation: none;
+    transform: none;
+  }
 }
 
 /* Titre tronqué par un fondu fixe plutôt que par des points de suspension. */

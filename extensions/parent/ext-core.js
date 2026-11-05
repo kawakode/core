@@ -336,7 +336,7 @@ class Tab extends TabBase {
   }
 
   get _favIconUrl() {
-    return undefined;
+    return this.entry.iconURL ?? undefined;
   }
 
   get _incognito() {
