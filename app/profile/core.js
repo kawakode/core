@@ -88,11 +88,20 @@ pref("media.peerconnection.mtransport_process", true);
 pref("extensions.webextensions.remote", true);
 pref("extensions.startupScanScopes", 0);
 
-// Extensions d'addons.mozilla.org : signature obligatoire, installation
-// autorisée depuis AMO sans question (permission « install » de
-// defaults/permissions), mises à jour vérifiées chaque jour auprès d'AMO.
-// Valeurs de browser/app/profile/firefox.js.
-pref("xpinstall.signatures.required", true);
+// Extensions d'addons.mozilla.org : installation autorisée depuis AMO sans
+// question (permission « install » de defaults/permissions), mises à jour
+// vérifiées chaque jour auprès d'AMO. Valeurs de browser/app/profile/firefox.js.
+//
+// Extensions non vérifiées (sans signature de Mozilla) : acceptées, mais
+// seulement depuis un fichier ou un dossier choisi dans Réglages > Extensions
+// ou about:addons, après une confirmation à l'installation
+// (modules/ExtensionsUI.sys.mjs refuse celles qui viennent d'un site). Ensuite
+// rien : ni désactivation au démarrage, ni bandeau dans about:addons.
+// Possible parce que Gecko ne force la signature que dans les versions
+// release/beta de Firefox, pas en ESR (MOZ_REQUIRE_SIGNING), et que
+// disableUnsignedWarnings n'est lu que hors MOZILLA_OFFICIAL.
+pref("xpinstall.signatures.required", false);
+pref("extensions.ui.disableUnsignedWarnings", true);
 pref("extensions.langpacks.signatures.required", true);
 pref("permissions.manager.defaultsUrl", "resource://app/defaults/permissions");
 pref("extensions.webextOptionalPermissionPrompts", true);

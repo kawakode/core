@@ -42,24 +42,44 @@ const ERRORS = {
   [-11]: "elle n'est pas compatible avec cette version de Core.",
 };
 
-function windowFor(browser) {
+// Fenêtre choisie pour les questions d'une installation lancée hors d'un
+// onglet (Réglages > Extensions), par AddonInstall.
+const gDialogParents = new WeakMap();
+
+function windowFor(browser, install) {
+  let parent = install && gDialogParents.get(install);
+  if (parent && !parent.closed) {
+    return parent;
+  }
   // ownerGlobal n'existe que dans le browser/ de Firefox.
   return browser?.ownerDocument?.defaultView ?? Services.wm.getMostRecentWindow("navigator:browser");
 }
 
-function alert(browser, message) {
-  Services.prompt.alert(windowFor(browser), "Extensions", message);
+function alert(browser, message, install) {
+  Services.prompt.alert(windowFor(browser, install), "Extensions", message);
+}
+
+// Extension non vérifiée par Mozilla (pas de signature, ou signature cassée).
+function isUnsigned(addon) {
+  return addon.signedState <= lazy.AddonManager.SIGNEDSTATE_MISSING;
+}
+
+// Seule une installation depuis un fichier ou un dossier choisi par
+// l'utilisateur peut ajouter une extension non vérifiée : jamais un site.
+function isLocalInstall(install) {
+  return !!install?.sourceURI?.schemeIs("file");
 }
 
 // Boîte de dialogue « Ajouter » / « Annuler » avec la liste des permissions,
 // formatée par toolkit (mêmes textes que Firefox).
 // Une mise à jour ou une demande facultative sans permission nouvelle à
 // montrer est acceptée sans question.
-function confirmPermissions(browser, info, { title, accept } = {}) {
+function confirmPermissions(browser, info, { title, accept, install } = {}) {
   let strings = lazy.ExtensionData.formatPermissionStrings(info, {
     fullDomainsList: true,
   });
   if (
+    !info.unsigned &&
     info.type &&
     info.type != "sideload" &&
     !strings.msgs.length &&
@@ -69,7 +89,17 @@ function confirmPermissions(browser, info, { title, accept } = {}) {
   }
   let name = info.addon.name;
   let header = (strings.header ?? "<>").replace("<>", name);
-  let lines = [header];
+  let lines = [];
+  if (info.unsigned) {
+    // Le seul avertissement : rien ensuite, ni au démarrage ni dans
+    // about:addons (extensions.ui.disableUnsignedWarnings).
+    lines.push(
+      `${name} n'est pas vérifiée par Mozilla : personne n'a contrôlé ce ` +
+        "qu'elle fait. Ne l'ajoutez que si vous savez d'où elle vient.",
+      ""
+    );
+  }
+  lines.push(header);
   if (strings.msgs.length) {
     lines.push("");
     if (strings.listIntro) {
@@ -80,19 +110,16 @@ function confirmPermissions(browser, info, { title, accept } = {}) {
   if (strings.dataCollectionPermissions?.msg) {
     lines.push("", strings.dataCollectionPermissions.msg);
   }
-  if (info.unsigned) {
-    lines.push("", "Attention : cette extension n'est pas vérifiée par Mozilla.");
-  }
   let flags =
     Services.prompt.BUTTON_POS_0 * Services.prompt.BUTTON_TITLE_IS_STRING +
     Services.prompt.BUTTON_POS_1 * Services.prompt.BUTTON_TITLE_IS_STRING +
     Services.prompt.BUTTON_POS_1_DEFAULT;
   let button = Services.prompt.confirmEx(
-    windowFor(browser),
-    title ?? "Ajouter une extension",
+    windowFor(browser, install),
+    title ?? (info.unsigned ? "Ajouter une extension non vérifiée" : "Ajouter une extension"),
     lines.join("\n"),
     flags,
-    accept ?? strings.acceptText ?? "Ajouter",
+    accept ?? (info.unsigned ? "Ajouter quand même" : (strings.acceptText ?? "Ajouter")),
     strings.cancelText ?? "Annuler",
     null,
     null,
@@ -108,14 +135,32 @@ export const ExtensionsUI = {
     }
   },
 
+  // Les questions et erreurs de `install` s'ouvriront sur `win`.
+  setDialogParent(install, win) {
+    gDialogParents.set(install, win);
+  },
+
+  errorText(code) {
+    return ERRORS[code] ?? "erreur inconnue.";
+  },
+
   observe(subject, topic) {
     let info = subject.wrappedJSObject;
     switch (topic) {
       case "webextension-permission-prompt": {
         let { target, info: install } = info;
-        install.unsigned =
-          install.addon.signedState <= lazy.AddonManager.SIGNEDSTATE_MISSING;
-        if (confirmPermissions(target, install)) {
+        install.unsigned = isUnsigned(install.addon);
+        if (install.unsigned && !isLocalInstall(install.install)) {
+          alert(
+            target,
+            `${install.addon.name} n'est pas vérifiée par Mozilla. Core n'ajoute ` +
+              "une extension non vérifiée que depuis un fichier ou un dossier " +
+              "(Réglages > Extensions)."
+          );
+          install.reject();
+          break;
+        }
+        if (confirmPermissions(target, install, { install: install.install })) {
           install.resolve();
         } else {
           install.reject();
@@ -185,8 +230,8 @@ export const ExtensionsUI = {
       case "addon-install-failed":
         for (let install of info.installs) {
           let name = install.addon?.name ?? install.name ?? "L'extension";
-          let reason = ERRORS[install.error] ?? "erreur inconnue.";
-          alert(info.browser, `${name} n'a pas pu être installée : ${reason}`);
+          let reason = this.errorText(install.error);
+          alert(info.browser, `${name} n'a pas pu être installée : ${reason}`, install);
         }
         break;
     }

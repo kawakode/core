@@ -48,3 +48,15 @@ section > label > input {
 #downloads-dir-change {
   margin-inline-start: 8px;
 }
+
+.help.flush {
+  margin-inline-start: 0;
+}
+
+.actions {
+  margin: 8px 0 0;
+}
+
+.actions > button + button {
+  margin-inline-start: 8px;
+}

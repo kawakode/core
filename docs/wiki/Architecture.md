@@ -131,8 +131,18 @@ Thunderbird le fait dans `comm/mail/components/extensions/` :
 Pour que les extensions d'addons.mozilla.org s'installent, Core se présente
 comme Firefox : même `MOZ_APP_ID`, même numéro de version, même User-Agent
 (un nom de navigateur rare rendrait aussi l'utilisateur plus facile à
-pister). Les extensions sont signées obligatoirement et mises à jour chaque
-jour depuis AMO.
+pister). Les extensions d'AMO sont mises à jour chaque jour.
+
+Extensions non vérifiées (sans signature de Mozilla) : Réglages > Extensions
+installe un fichier `.xpi` / `.zip` ou un dossier contenant `manifest.json`,
+en permanent (`modules/LocalExtensions.sys.mjs`). Une archive « Download
+ZIP » de GitHub (tout dans un sous-dossier) est remise à plat, et une
+extension sans identifiant Gecko en reçoit un tiré de son nom
+(`nom-1a2b3c4d@core.local`), si bien que réinstaller une version plus récente
+remplace l'ancienne. Une seule confirmation à l'installation, puis plus aucun
+avertissement. Une extension non vérifiée proposée par un site est refusée
+(`ExtensionsUI`). Gecko l'autorise parce que la signature n'est imposée que
+dans les Firefox release/beta, pas en ESR (`xpinstall.signatures.required`).
 
 Limite actuelle : pas de menu contextuel, donc les entrées de menu des
 extensions ne s'affichent pas encore.

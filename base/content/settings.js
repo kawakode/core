@@ -5,8 +5,8 @@
 "use strict";
 
 // Fenêtre de réglages : sandbox des processus de contenu, barre de titre,
-// historique, téléchargements, barre de marque-pages et réponse par défaut aux
-// certificats invalides.
+// historique, téléchargements, barre de marque-pages, extensions installées
+// depuis un fichier et réponse par défaut aux certificats invalides.
 
 const SANDBOX_PREF = "security.sandbox.content.level";
 
@@ -181,6 +181,27 @@ const gTitlebar = {
   },
 };
 
+// Extensions installées depuis un fichier ou un dossier, vérifiées ou non
+// (modules/LocalExtensions.sys.mjs).
+const gExtensions = {
+  init() {
+    let { LocalExtensions } = ChromeUtils.importESModule(
+      "resource:///modules/LocalExtensions.sys.mjs"
+    );
+    let added = document.getElementById("extension-added");
+    let onDone = name => {
+      added.textContent = `${name} est ajoutée.`;
+      added.hidden = false;
+    };
+    for (let mode of ["file", "folder"]) {
+      document.getElementById(`extension-${mode}`).addEventListener("click", () => {
+        added.hidden = true;
+        LocalExtensions.pick(window, mode, onDone);
+      });
+    }
+  },
+};
+
 // Barre de marque-pages (base/content/bookmarks.js suit la préférence).
 const gBookmarksToolbar = {
   PREF: "core.bookmarks.toolbar",
@@ -206,6 +227,7 @@ window.addEventListener(
     gCertError.init();
     gHistory.init();
     gBookmarksToolbar.init();
+    gExtensions.init();
     document.getElementById("restart").addEventListener("click", () => {
       Services.startup.quit(
         Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart
