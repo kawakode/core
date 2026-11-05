@@ -12,4 +12,5 @@ EXTRA_JS_MODULES += [
     "CoreTabIconParent.sys.mjs",
     "ExtensionsUI.sys.mjs",
     "HomePage.sys.mjs",
+    "LocalExtensions.sys.mjs",
 ]

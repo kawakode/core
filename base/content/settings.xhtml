@@ -75,6 +75,19 @@
     </p>
   </section>
   <section>
+    <h2>Extensions</h2>
+    <p class="help flush">
+      Ajouter une extension qui ne vient pas d'addons.mozilla.org : un
+      fichier .xpi ou .zip, ou le dossier qui contient son manifest.json.
+      Elle reste installée après un redémarrage.
+    </p>
+    <p class="actions">
+      <button id="extension-file">Depuis un fichier…</button>
+      <button id="extension-folder">Depuis un dossier…</button>
+    </p>
+    <p id="extension-added" class="help flush" hidden="true"></p>
+  </section>
+  <section>
     <h2>Certificat invalide</h2>
     <p class="help">Quand un site présente un certificat qui ne peut pas être vérifié :</p>
     <label><input type="radio" name="certerror" value="ask" /> Demander</label>
