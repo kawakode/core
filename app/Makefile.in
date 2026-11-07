@@ -21,7 +21,8 @@ endif
 
 ifeq (cocoa,$(MOZ_WIDGET_TOOLKIT))
 # Bundle dist/Core.app, construit à la fin du build (cible tools) comme
-# celui de Firefox (browser/app/Makefile.in), sans updater ni Assets.car.
+# celui de Firefox (browser/app/Makefile.in), sans updater, assistant
+# d'installation depuis le .dmg (dmgInstallHelper, ESR 153.6+) ni Assets.car.
 # Le binaire va dans Contents/MacOS, XUL, les sous-bundles
 # (plugin-container.app…) et les dylibs aussi, ChannelPrefs.framework dans
 # Contents/Frameworks, tout le reste de dist/bin dans Contents/Resources, qui
@@ -42,7 +43,7 @@ tools repackage:: $(DIST)/bin/$(MOZ_APP_NAME) $(CURDIR)/macbuild/Contents/MacOS-
 	$(MKDIR) -p '$(dist_dest)/$(LPROJ)'
 	$(call py_action,preprocessor Info.plist,-Fsubstitution -DAPP_VERSION='$(MOZ_APP_VERSION)' -DMOZ_APP_NAME='$(MOZ_APP_NAME)' -DMAC_APP_NAME='$(MAC_APP_NAME)' -DMOZ_MACBUNDLE_ID='$(MOZ_MACBUNDLE_ID)' -DMAC_BUNDLE_VERSION='$(MAC_BUNDLE_VERSION)' -DMOZ_DEVELOPER_REPO_PATH='$(topsrcdir)' -DMOZ_DEVELOPER_OBJ_PATH='$(topobjdir)' $(srcdir)/macbuild/Contents/Info.plist.in -o '$(dist_dest)/Contents/Info.plist')
 	$(call py_action,preprocessor InfoPlist.strings,-Fsubstitution --output-encoding utf-16 -DMAC_APP_NAME='$(MAC_APP_NAME)' $(srcdir)/macbuild/Contents/Resources/English.lproj/InfoPlist.strings.in -o '$(dist_dest)/$(LPROJ)/InfoPlist.strings')
-	rsync -a --exclude-from='$(CURDIR)/macbuild/Contents/MacOS-files.txt' --exclude '/$(MOZ_APP_NAME)' --exclude '/*.dylib' $(DIST)/bin/ '$(dist_dest)/Contents/Resources'
+	rsync -a --exclude-from='$(CURDIR)/macbuild/Contents/MacOS-files.txt' --exclude '/$(MOZ_APP_NAME)' --exclude '/*.dylib' --exclude '/org.mozilla.dmgInstallHelper' --exclude '/dmgInstallHelper-Info.plist' $(DIST)/bin/ '$(dist_dest)/Contents/Resources'
 	rsync -a --include-from='$(CURDIR)/macbuild/Contents/MacOS-files.txt' --exclude '*' $(DIST)/bin/ '$(dist_dest)/Contents/MacOS'
 	# Les dylibs doivent être de vraies copies, voir MacOS-files-copy.in.
 	rsync -aL --include-from='$(srcdir)/macbuild/Contents/MacOS-files-copy.in' --exclude '*' $(DIST)/bin/ '$(dist_dest)/Contents/MacOS'

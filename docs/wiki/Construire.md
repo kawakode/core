@@ -152,6 +152,12 @@ core/scripts/release/empaqueter.sh macos-aarch64 false <version> <dossier-sortie
 
 Le build produit `dist/Core.app` (assemblé par `core/app/Makefile.in`, avec
 `core/app/macbuild/Contents/Info.plist.in` et `core/branding/core.icns`).
+Pour un build de développement sur un Mac, lancer une copie
+(`cp -RL obj-…/dist/Core.app /tmp/`) plutôt que `dist/Core.app` : le
+bundle de dev renvoie par liens vers `core/`, hors de l'arbre de Gecko, et
+la sandbox des processus de contenu ne lit que l'arbre de Gecko (les
+acteurs de Core ne s'y chargeraient pas).
+
 `empaqueter.sh` le signe ad hoc avec `rcodesign` (compilé une fois dans
 `~/.mozbuild/rcodesign`) puis en fait `core-<version>-macos-arm64.dmg` ou
 `-x86_64.dmg`.
