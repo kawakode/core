@@ -1,11 +1,19 @@
 #!/bin/bash
 # Build de distribution de Core, depuis la racine de Gecko.
-#   core/scripts/release/construire.sh linux|win64 true|false(pgo)
+#   core/scripts/release/construire.sh linux|win64|macos-aarch64|macos-x86_64 true|false(pgo)
 # Sans PGO : mozconfigs/<cible>-release (LTO). Avec : les recettes de
-# scripts/pgo/, qui demandent un serveur X sur $DISPLAY.
+# scripts/pgo/, qui demandent un serveur X sur $DISPLAY. macOS est compilé
+# depuis Linux et toujours sans PGO : le profilage demanderait un Mac.
 set -euo pipefail
 cible=$1
 pgo=$2
+
+case "$cible" in
+  macos-*)
+    [ "$pgo" = true ] && echo "Pas de PGO pour macOS (profilage impossible depuis Linux) : build LTO seul"
+    pgo=false
+    ;;
+esac
 
 # mach compte 1 Go par tâche ; le build Windows (clang-cl, rustc et
 # l'édition de liens de xul.dll, instrumentés pour le PGO) en prend bien
@@ -29,7 +37,10 @@ esac
 # ~/.mozbuild, au cas où le LTO mêle C++ et Rust.
 RUST_TOOLCHAIN=1.92.0
 rustup toolchain install $RUST_TOOLCHAIN --profile minimal
-[ "$cible" = win64 ] && rustup target add --toolchain $RUST_TOOLCHAIN x86_64-pc-windows-msvc
+case "$cible" in
+  win64) rustup target add --toolchain $RUST_TOOLCHAIN x86_64-pc-windows-msvc ;;
+  macos-*) rustup target add --toolchain $RUST_TOOLCHAIN "${cible#macos-}-apple-darwin" ;;
+esac
 RUSTC=$(rustup which --toolchain $RUST_TOOLCHAIN rustc)
 CARGO=$(rustup which --toolchain $RUST_TOOLCHAIN cargo)
 export RUSTC CARGO

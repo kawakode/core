@@ -3,8 +3,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # Lanceur natif, version allégée de browser/app/moz.build.
-# Linux d'abord ; les parties Windows réutilisent le launcher de Firefox,
-# le bundle macOS reste à faire.
+# Les parties Windows réutilisent le launcher de Firefox ; sur macOS, le
+# bundle Core.app est assemblé par Makefile.in (cible tools).
 
 GeckoProgram(CONFIG["MOZ_APP_NAME"], linkage="standalone")
 
@@ -53,6 +53,9 @@ if CONFIG["OS_ARCH"] == "WINNT":
 
 if CONFIG["OS_ARCH"] == "Darwin":
     OS_LIBS += ["-framework CoreFoundation"]
+
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
+    DIRS += ["macbuild/Contents"]
 
 if CONFIG["MOZ_SANDBOX"] and CONFIG["OS_ARCH"] == "WINNT":
     LOCAL_INCLUDES += [

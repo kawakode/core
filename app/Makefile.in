@@ -10,10 +10,42 @@ PROGRAMS_DEST = $(DIST)/bin
 
 include $(topsrcdir)/config/rules.mk
 
-ifneq (,$(filter-out WINNT,$(OS_ARCH)))
+ifneq (,$(filter-out WINNT Darwin,$(OS_ARCH)))
 ifdef COMPILE_ENVIRONMENT
 # Les processus enfants sont relancés via <app>-bin, comme pour Firefox.
+# Pas sur macOS, où ils passent par plugin-container.app.
 libs::
 	cp -p $(DIST)/bin/$(MOZ_APP_NAME)$(BIN_SUFFIX) $(DIST)/bin/$(MOZ_APP_NAME)-bin$(BIN_SUFFIX)
 endif
+endif
+
+ifeq (cocoa,$(MOZ_WIDGET_TOOLKIT))
+# Bundle dist/Core.app, construit à la fin du build (cible tools) comme
+# celui de Firefox (browser/app/Makefile.in), sans updater, ChannelPrefs ni
+# Assets.car. Le binaire va dans Contents/MacOS, XUL et les sous-bundles
+# (plugin-container.app…) et les dylibs aussi, tout le reste de dist/bin dans
+# Contents/Resources, qui sert de dossier GRE.
+
+dist_dest = $(DIST)/$(MOZ_MACBUNDLE_NAME)
+MAC_APP_NAME = $(MOZ_APP_DISPLAYNAME)
+LPROJ := Contents/Resources/en.lproj
+MAC_BUNDLE_VERSION = $(shell $(PYTHON3) $(topsrcdir)/browser/app/macversion.py --version=$(MOZ_APP_VERSION) --buildid=$(DEPTH)/buildid.h)
+
+repackage::
+	$(RM) -r '$(dist_dest)'
+
+.PHONY: repackage
+tools repackage:: $(DIST)/bin/$(MOZ_APP_NAME) $(CURDIR)/macbuild/Contents/MacOS-files.txt
+	rm -rf '$(dist_dest)'
+	$(MKDIR) -p '$(dist_dest)/Contents/MacOS'
+	$(MKDIR) -p '$(dist_dest)/$(LPROJ)'
+	$(call py_action,preprocessor Info.plist,-Fsubstitution -DAPP_VERSION='$(MOZ_APP_VERSION)' -DMOZ_APP_NAME='$(MOZ_APP_NAME)' -DMAC_APP_NAME='$(MAC_APP_NAME)' -DMOZ_MACBUNDLE_ID='$(MOZ_MACBUNDLE_ID)' -DMAC_BUNDLE_VERSION='$(MAC_BUNDLE_VERSION)' -DMOZ_DEVELOPER_REPO_PATH='$(topsrcdir)' -DMOZ_DEVELOPER_OBJ_PATH='$(topobjdir)' $(srcdir)/macbuild/Contents/Info.plist.in -o '$(dist_dest)/Contents/Info.plist')
+	$(call py_action,preprocessor InfoPlist.strings,-Fsubstitution --output-encoding utf-16 -DMAC_APP_NAME='$(MAC_APP_NAME)' $(srcdir)/macbuild/Contents/Resources/English.lproj/InfoPlist.strings.in -o '$(dist_dest)/$(LPROJ)/InfoPlist.strings')
+	rsync -a --exclude-from='$(CURDIR)/macbuild/Contents/MacOS-files.txt' --exclude '/$(MOZ_APP_NAME)' --exclude '/*.dylib' $(DIST)/bin/ '$(dist_dest)/Contents/Resources'
+	rsync -a --include-from='$(CURDIR)/macbuild/Contents/MacOS-files.txt' --exclude '*' $(DIST)/bin/ '$(dist_dest)/Contents/MacOS'
+	# Les dylibs doivent être de vraies copies, voir MacOS-files-copy.in.
+	rsync -aL --include-from='$(srcdir)/macbuild/Contents/MacOS-files-copy.in' --exclude '*' $(DIST)/bin/ '$(dist_dest)/Contents/MacOS'
+	rsync -aL $(DIST)/bin/$(MOZ_APP_NAME) '$(dist_dest)/Contents/MacOS'
+	cp -RL $(topsrcdir)/$(MOZ_BRANDING_DIRECTORY)/core.icns '$(dist_dest)/Contents/Resources/core.icns'
+	printf APPLMOZB > '$(dist_dest)/Contents/PkgInfo'
 endif

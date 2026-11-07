@@ -24,7 +24,9 @@ Fission, processus séparés).
 
 - Gecko **ESR 153.5.1** (`FIREFOX_153_5_1esr_RELEASE`, fichier `GECKO_TAG`).
 - Linux : se construit et tourne. Windows : se construit (compilation croisée
-  depuis Linux, zip portable sans installeur). macOS : à faire.
+  depuis Linux, zip portable sans installeur). macOS : se construit
+  (compilation croisée depuis Linux, `.dmg` signé ad hoc), pas encore testé
+  sur un Mac.
 
 > Ces pages vivent dans `docs/wiki/` du dépôt, pour être relues et
 > versionnées avec le code par pull request.

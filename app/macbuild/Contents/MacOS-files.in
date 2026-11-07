@@ -1,0 +1,8 @@
+#if 0
+; Fichiers de dist/bin copiés (liens symboliques conservés) dans
+; Core.app/Contents/MacOS plutôt que dans Contents/Resources. Version réduite
+; de browser/app/macbuild/Contents/MacOS-files.in.
+#endif
+#filter substitution
+/*.app/***
+/XUL

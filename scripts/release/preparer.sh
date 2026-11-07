@@ -2,15 +2,15 @@
 # Prépare la machine d'un job de release (.github/workflows/release.yml) :
 # dossier de travail et, sur les runners de GitHub, place disque, swap et
 # paquets système.
-#   scripts/release/preparer.sh linux|win64 true|false(pgo)
+#   scripts/release/preparer.sh linux|win64|macos-aarch64|macos-x86_64 true|false(pgo)
 set -euo pipefail
 cible=$1
 pgo=$2
 
 if [ "${RUNNER_ENVIRONMENT:-}" != github-hosted ]; then
-  # Runner auto-hébergé : mach bootstrap, Xvfb, msitools et wine y sont déjà
-  # installés. RUNNER_TEMP est vidé à chaque job, donc chaque release part
-  # d'un Gecko propre.
+  # Runner auto-hébergé : mach bootstrap, Xvfb, msitools, wine et rsync y
+  # sont déjà installés. RUNNER_TEMP est vidé à chaque job, donc chaque
+  # release part d'un Gecko propre.
   echo "GECKO_DIR=$RUNNER_TEMP/gecko" >> "$GITHUB_ENV"
   exit 0
 fi
@@ -51,7 +51,9 @@ if [ "$cible" = win64 ]; then
   sudo dpkg --add-architecture i386
   paquets+=(msitools libc6:i386)
 fi
-[ "$pgo" = true ] && paquets+=(xvfb)
+# rsync assemble Core.app (core/app/Makefile.in).
+case "$cible" in macos-*) paquets+=(rsync) ;; esac
+[ "$pgo" = true ] && [[ "$cible" != macos-* ]] && paquets+=(xvfb)
 [ "$cible" = win64 ] && [ "$pgo" = true ] && paquets+=(wine)
 if [ ${#paquets[@]} -gt 0 ]; then
   sudo apt-get update -q
