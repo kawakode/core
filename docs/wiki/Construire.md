@@ -103,12 +103,12 @@ Pour Windows, le script ajoute `msvcp140.dll`, `vcruntime140.dll` et
 Silicon et Intel) et publie une release quand un tag `v*` est poussé :
 
 ```sh
-git tag v153.5.1 && git push origin v153.5.1
+git tag v153.6.0 && git push origin v153.6.0
 ```
 
 La release contient les archives Linux et Windows, les deux `.dmg` macOS et
-`SHA256SUMS`. Un suffixe avec des
-lettres (`v153.6.0-beta1`) donne une pré-version ; `v153.5.1-2` une nouvelle
+`SHA256SUMS`. Un suffixe avec des lettres (`v153.7.0-beta1`) donne une
+pré-version ; `v153.6.0-2` une nouvelle
 release de la même version de Gecko.
 
 Le workflow se lance aussi à la main (onglet Actions, « Run workflow ») :
