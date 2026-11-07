@@ -1,5 +1,5 @@
 diff --git a/dom/media/ipc/RemoteMediaManagerChild.cpp b/dom/media/ipc/RemoteMediaManagerChild.cpp
-index 38af925e10..d6aa131b88 100644
+index 38af925e..d6aa131b 100644
 --- a/dom/media/ipc/RemoteMediaManagerChild.cpp
 +++ b/dom/media/ipc/RemoteMediaManagerChild.cpp
 @@ -285,8 +285,11 @@ bool RemoteMediaManagerChild::Supports(RemoteMediaIn aLocation,
@@ -16,7 +16,7 @@ index 38af925e10..d6aa131b88 100644
          return trackSupport.contains(TrackSupport::DecodeVideo);
  #endif
 diff --git a/dom/media/platforms/ffmpeg/FFmpegDecoderModule.h b/dom/media/platforms/ffmpeg/FFmpegDecoderModule.h
-index acda375b50..01da6f0862 100644
+index acda375b..01da6f08 100644
 --- a/dom/media/platforms/ffmpeg/FFmpegDecoderModule.h
 +++ b/dom/media/platforms/ffmpeg/FFmpegDecoderModule.h
 @@ -90,12 +90,13 @@ class FFmpegDecoderModule : public PlatformDecoderModule {
@@ -37,7 +37,7 @@ index acda375b50..01da6f0862 100644
  #  endif
  #  ifdef MOZ_WIDGET_ANDROID
 diff --git a/media/ffvpx/config_components.h b/media/ffvpx/config_components.h
-index 23b3f2d848..2c3193ad42 100644
+index 23b3f2d8..2c3193ad 100644
 --- a/media/ffvpx/config_components.h
 +++ b/media/ffvpx/config_components.h
 @@ -14,6 +14,11 @@
@@ -52,11 +52,39 @@ index 23b3f2d848..2c3193ad42 100644
  #if defined(MOZ_FFVPX_AUDIOONLY)
  #    include "config_components_audio_only.h"
  #else
+diff --git a/media/ffvpx/config_darwin64.asm b/media/ffvpx/config_darwin64.asm
+index f12b55c3..82ba9f10 100644
+--- a/media/ffvpx/config_darwin64.asm
++++ b/media/ffvpx/config_darwin64.asm
+@@ -43,6 +43,7 @@
+ %define HAVE_AVX 1
+ %define HAVE_AVX2 1
+ %define HAVE_AVX512 1
++%define HAVE_AVX512ICL 0
+ %define HAVE_FMA3 1
+ %define HAVE_FMA4 1
+ %define HAVE_MMX 1
+@@ -89,6 +90,7 @@
+ %define HAVE_AVX_EXTERNAL 1
+ %define HAVE_AVX2_EXTERNAL 1
+ %define HAVE_AVX512_EXTERNAL 1
++%define HAVE_AVX512ICL_EXTERNAL 0
+ %define HAVE_FMA3_EXTERNAL 1
+ %define HAVE_FMA4_EXTERNAL 1
+ %define HAVE_MMX_EXTERNAL 1
+@@ -135,6 +137,7 @@
+ %define HAVE_AVX_INLINE 1
+ %define HAVE_AVX2_INLINE 1
+ %define HAVE_AVX512_INLINE 1
++%define HAVE_AVX512ICL_INLINE 0
+ %define HAVE_FMA3_INLINE 1
+ %define HAVE_FMA4_INLINE 1
+ %define HAVE_MMX_INLINE 1
 diff --git a/media/ffvpx/config_override.h b/media/ffvpx/config_override.h
-index 0fe24bd0d0..7609946a58 100644
+index 0fe24bd0..714afe3a 100644
 --- a/media/ffvpx/config_override.h
 +++ b/media/ffvpx/config_override.h
-@@ -43,6 +43,64 @@
+@@ -43,6 +43,72 @@
  #define CONFIG_AV1_VAAPI_HWACCEL 0
  #endif
  
@@ -112,6 +140,14 @@ index 0fe24bd0d0..7609946a58 100644
 +#define HAVE_DOTPROD 0
 +#endif
 +
++// config_darwin64.h (macOS Intel) predates AVX512ICL, which the HEVC x86 code
++// tests; its AVX2 functions are used instead.
++#ifndef HAVE_AVX512ICL
++#define HAVE_AVX512ICL 0
++#define HAVE_AVX512ICL_EXTERNAL 0
++#define HAVE_AVX512ICL_INLINE 0
++#endif
++
 +#if defined(MOZ_WIDGET_GTK) && !defined(MOZ_FFVPX_AUDIOONLY)
 +#define CONFIG_HEVC_VAAPI_HWACCEL 1
 +#else
@@ -122,7 +158,7 @@ index 0fe24bd0d0..7609946a58 100644
   * Windows Hardware Video Decoding
   **/
 diff --git a/media/ffvpx/libavcodec/aarch64/moz.build b/media/ffvpx/libavcodec/aarch64/moz.build
-index 54e2b90141..8f8b6524d7 100644
+index 54e2b901..8f8b6524 100644
 --- a/media/ffvpx/libavcodec/aarch64/moz.build
 +++ b/media/ffvpx/libavcodec/aarch64/moz.build
 @@ -40,6 +40,19 @@ if not CONFIG['MOZ_FFVPX_AUDIOONLY']:
@@ -146,7 +182,7 @@ index 54e2b90141..8f8b6524d7 100644
      SOURCES += [
          'idctdsp_init_aarch64.c',
 diff --git a/media/ffvpx/libavcodec/codec_list.c b/media/ffvpx/libavcodec/codec_list.c
-index 77ed5707b6..d5c071ae35 100644
+index 77ed5707..d5c071ae 100644
 --- a/media/ffvpx/libavcodec/codec_list.c
 +++ b/media/ffvpx/libavcodec/codec_list.c
 @@ -5,6 +5,9 @@ static const FFCodec * const codec_list[] = {
@@ -160,7 +196,7 @@ index 77ed5707b6..d5c071ae35 100644
      &ff_flac_decoder,
  #endif
 diff --git a/media/ffvpx/libavcodec/dovi_rpu.h b/media/ffvpx/libavcodec/dovi_rpu.h
-index 64388d0650..404de9b367 100644
+index 64388d06..404de9b3 100644
 --- a/media/ffvpx/libavcodec/dovi_rpu.h
 +++ b/media/ffvpx/libavcodec/dovi_rpu.h
 @@ -27,6 +27,8 @@ typedef struct AVDOVIMetadata {
@@ -173,7 +209,7 @@ index 64388d0650..404de9b367 100644
                                 AVDOVIDecoderConfigurationRecord* record) {}
  static int ff_dovi_rpu_parse(DOVIContext* ctx, uint8_t* buf, size_t len,
 diff --git a/media/ffvpx/libavcodec/moz.build b/media/ffvpx/libavcodec/moz.build
-index f9b65533fb..abd1c4fefa 100644
+index f9b65533..abd1c4fe 100644
 --- a/media/ffvpx/libavcodec/moz.build
 +++ b/media/ffvpx/libavcodec/moz.build
 @@ -123,6 +123,22 @@ if not CONFIG['MOZ_FFVPX_AUDIOONLY']:
@@ -208,7 +244,7 @@ index f9b65533fb..abd1c4fefa 100644
              'vaapi_vp9.c',
          ]
 diff --git a/media/ffvpx/libavcodec/x86/moz.build b/media/ffvpx/libavcodec/x86/moz.build
-index d3d481ee02..ab4ca70cf1 100644
+index d3d481ee..ab4ca70c 100644
 --- a/media/ffvpx/libavcodec/x86/moz.build
 +++ b/media/ffvpx/libavcodec/x86/moz.build
 @@ -35,6 +35,23 @@ SOURCES += [
@@ -236,7 +272,7 @@ index d3d481ee02..ab4ca70cf1 100644
  
  if CONFIG['TARGET_CPU'] == 'x86':
 diff --git a/media/ffvpx/libavutil/avutil.symbols b/media/ffvpx/libavutil/avutil.symbols
-index b5d7c8e5d9..15c867ba9c 100644
+index b5d7c8e5..15c867ba 100644
 --- a/media/ffvpx/libavutil/avutil.symbols
 +++ b/media/ffvpx/libavutil/avutil.symbols
 @@ -330,3 +330,29 @@ av_get_sample_fmt_name
@@ -270,7 +306,7 @@ index b5d7c8e5d9..15c867ba9c 100644
 +#endif
 +#endif
 diff --git a/media/ffvpx/libavutil/moz.build b/media/ffvpx/libavutil/moz.build
-index 4174ec4cb3..59cad54e28 100644
+index 4174ec4c..59cad54e 100644
 --- a/media/ffvpx/libavutil/moz.build
 +++ b/media/ffvpx/libavutil/moz.build
 @@ -70,6 +70,16 @@ if not CONFIG['MOZ_FFVPX_AUDIOONLY']:
@@ -291,7 +327,7 @@ index 4174ec4cb3..59cad54e28 100644
          LOCAL_INCLUDES += ['/media/mozva']
          SOURCES += [
 diff --git a/media/mozva/va/va.h b/media/mozva/va/va.h
-index ca5a000ab8..b43e56ef9b 100644
+index ca5a000a..b43e56ef 100644
 --- a/media/mozva/va/va.h
 +++ b/media/mozva/va/va.h
 @@ -5179,7 +5179,7 @@ typedef union _VACopyOption {
