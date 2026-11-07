@@ -21,8 +21,7 @@ endif
 
 ifeq (cocoa,$(MOZ_WIDGET_TOOLKIT))
 # Bundle dist/Core.app, construit à la fin du build (cible tools) comme
-# celui de Firefox (browser/app/Makefile.in), sans updater, ChannelPrefs ni
-# Assets.car. Le binaire va dans Contents/MacOS, XUL et les sous-bundles
+# celui de Firefox (browser/app/Makefile.in), sans updater ni Assets.car. Le binaire va dans Contents/MacOS, XUL et les sous-bundles
 # (plugin-container.app…) et les dylibs aussi, tout le reste de dist/bin dans
 # Contents/Resources, qui sert de dossier GRE.
 
@@ -47,5 +46,9 @@ tools repackage:: $(DIST)/bin/$(MOZ_APP_NAME) $(CURDIR)/macbuild/Contents/MacOS-
 	rsync -aL --include-from='$(srcdir)/macbuild/Contents/MacOS-files-copy.in' --exclude '*' $(DIST)/bin/ '$(dist_dest)/Contents/MacOS'
 	rsync -aL $(DIST)/bin/$(MOZ_APP_NAME) '$(dist_dest)/Contents/MacOS'
 	cp -RL $(topsrcdir)/$(MOZ_BRANDING_DIRECTORY)/core.icns '$(dist_dest)/Contents/Resources/core.icns'
+	# Du code dans Contents/Resources casserait la signature : le framework
+	# va dans Contents/Frameworks, comme pour Firefox.
+	$(MKDIR) -p '$(dist_dest)/Contents/Frameworks'
+	mv '$(dist_dest)/Contents/Resources/ChannelPrefs.framework' '$(dist_dest)/Contents/Frameworks'
 	printf APPLMOZB > '$(dist_dest)/Contents/PkgInfo'
 endif
