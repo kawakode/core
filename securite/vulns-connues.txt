@@ -8,9 +8,10 @@
 # correction par Mozilla (montée d'ESR) ou qu'elle ne touche pas Core.
 # À chaque montée d'ESR, retirer les lignes devenues inutiles.
 
-# Gecko 153.5.1esr, crates compilées dans libxul : à corriger par Mozilla.
+# Gecko 153.6.0esr, crates compilées dans libxul : à corriger par Mozilla.
 bincode RUSTSEC-2025-0141  # Bincode is unmaintained
 paste RUSTSEC-2024-0436  # paste - no longer maintained
+pin-utils RUSTSEC-2026-0441  # pin-utils is unmaintained : via futures-util, pas de faille
 proc-macro-error2 RUSTSEC-2026-0173  # proc-macro-error2 is unmaintained
 remove_dir_all GHSA-mc8h-8q98-g5hr  # Race Condition Enabling Link Following and Time-of-check Time-of-use (
 ringbuf RUSTSEC-2026-0293  # Double free / use-after-free in `Consumer::skip` and `Consumer::clear`
@@ -18,7 +19,7 @@ serde_with GHSA-7gcf-g7xr-8hxj  # serde_with: KeyValueMap serialization panics o
 smallbitvec CVE-2026-44983  # smallbitvec: Integer overflow in safe API leads to heap buffer overflo
 tokio RUSTSEC-2026-0386  # `AsyncFd::new` and related constructors violate I/O safety : défaut de typage, pas de déclencheur depuis une page
 
-# Gecko 153.5.1esr, crates d'outils (geckodriver, crashreporter, nimbus-fml), absentes de Core.
+# Gecko 153.6.0esr, crates d'outils (geckodriver, crashreporter, nimbus-fml), absentes de Core.
 quick-xml RUSTSEC-2026-0194  # Quadratic run time when checking a start tag for duplicate attribute n
 quick-xml RUSTSEC-2026-0195  # Unbounded namespace-declaration allocation in `NsReader` enables memor
 unsafe-libyaml RUSTSEC-2024-0449  # unsafe-libyaml is unmaintained
@@ -27,7 +28,7 @@ zip GHSA-4v9h-p7m9-rh26  # zip: `ZipArchive::extract` creates symbolic links who
 zip GHSA-vv5m-jxxh-4627  # Insecure Preservation of SUID/SGID Bits during ZIP Extraction Leading
 basic-toml RUSTSEC-2026-0374  # `basic-toml` is unmaintained : via askama, générateur de code uniffi au build
 
-# Gecko 153.5.1esr, environnement Python de mach : sert au build, pas au navigateur.
+# Gecko 153.6.0esr, environnement Python de mach : sert au build, pas au navigateur.
 aiohttp CVE-2026-22815  # aiohttp allows unlimited trailer headers, leading to possible uncapped
 aiohttp CVE-2026-34513  # AIOHTTP Affected by Denial of Service (DoS) via Unbounded DNS Cache in
 aiohttp CVE-2026-34514  # AIOHTTP has CRLF injection through multipart part content type header
@@ -72,6 +73,10 @@ pyasn1 CVE-2026-30922  # Denial of Service in pyasn1 via Unbounded Recursion
 pyasn1 CVE-2026-59884  # pyasn1 BER/CER/DER decoder denial of service via unbounded long-form t
 pyasn1 CVE-2026-59885  # pyasn1: Quadratic complexity in OBJECT IDENTIFIER and RELATIVE-OID pro
 pyasn1 CVE-2026-59886  # pyasn1: Uncontrolled resource consumption when converting decoded REAL
+pyasn1 CVE-2026-119194  # pyasn1: complexité quadratique du décodeur (déni de service), mach seulement
+pyasn1 CVE-2026-119195  # pyasn1: complexité quadratique du décodeur (déni de service), mach seulement
+pyasn1 CVE-2026-119196  # pyasn1: complexité quadratique du décodeur (déni de service), mach seulement
+pyasn1 CVE-2026-119197  # pyasn1: complexité quadratique du décodeur (déni de service), mach seulement
 requests CVE-2026-25645  # Requests has Insecure Temp File Reuse in its extract_zipped_paths() ut
 setuptools BIT-setuptools-2025-47273  # setuptools has a path traversal vulnerability in PackageIndex.download
 setuptools BIT-setuptools-2026-59890  # setuptools: MANIFEST.in exclusion bypass in sdist via Unicode normaliz
@@ -93,7 +98,7 @@ aiohttp GHSA-2g87-pp6c-29x5  # AIOHTTP: Pure-Python parser request smuggling
 certifi GHSA-6q48-6c7w-9gw2  # certifi bundles emSign root CAs with compromised intermediate CA keys ; Core utilise les racines de NSS
 setuptools GHSA-xmj3-9gf7-h52w  # setuptools: Windows path escape via namespace_packages.txt during legacy
 
-# Gecko 153.5.1esr, bibliothèques C/C++ : correspondance par commit d'origine
+# Gecko 153.6.0esr, bibliothèques C/C++ : correspondance par commit d'origine
 # sur osv.dev. Mozilla corrige souvent ses copies sans changer ce commit, ces
 # lignes sont donc à vérifier une par une avant d'en conclure quoi que ce soit.
 
