@@ -12,6 +12,7 @@
 bincode RUSTSEC-2025-0141  # Bincode is unmaintained
 paste RUSTSEC-2024-0436  # paste - no longer maintained
 pin-utils RUSTSEC-2026-0441  # pin-utils is unmaintained : via futures-util, pas de faille
+crypto_hash RUSTSEC-2025-0060  # faux positif : crate de Mozilla dans l'arbre (security/), homonyme de crypto-hash de crates.io
 proc-macro-error2 RUSTSEC-2026-0173  # proc-macro-error2 is unmaintained
 remove_dir_all GHSA-mc8h-8q98-g5hr  # Race Condition Enabling Link Following and Time-of-check Time-of-use (
 ringbuf RUSTSEC-2026-0293  # Double free / use-after-free in `Consumer::skip` and `Consumer::clear`
@@ -26,6 +27,9 @@ unsafe-libyaml RUSTSEC-2024-0449  # unsafe-libyaml is unmaintained
 zip GHSA-4684-h2q9-2vcp  # ZipStreamReader::extract() and ZipArchive::extract() apply Unix permis
 zip GHSA-4v9h-p7m9-rh26  # zip: `ZipArchive::extract` creates symbolic links whose attacker-contr
 zip GHSA-vv5m-jxxh-4627  # Insecure Preservation of SUID/SGID Bits during ZIP Extraction Leading
+zip CVE-2026-115905  # zip: Parser Differential via Dual-Header Inconsistencies (Zip Cloaking)
+zip CVE-2026-115906  # zip: AES Entry HMAC Authentication Bypass on Premature EOF
+zip CVE-2026-115909  # zip: `ZipArchive::extract` aborts the process on a symlink entry with a large declared size
 basic-toml RUSTSEC-2026-0374  # `basic-toml` is unmaintained : via askama, générateur de code uniffi au build
 
 # Gecko 153.6.0esr, environnement Python de mach : sert au build, pas au navigateur.
@@ -146,9 +150,9 @@ third_party/cups CVE-2026-61702
 third_party/cups CVE-2026-87875
 third_party/cups CVE-2026-87876
 
-# llama.cpp : moteur des fonctions d'IA locales de Firefox, compilé dans libxul
-# par toolkit/components/ml sans option pour le désactiver. Core n'a pas de
-# fonctions d'IA : à retirer par un correctif de Gecko, et ces lignes avec.
+# llama.cpp : moteur des fonctions d'IA locales de Firefox. Core ne le compile
+# plus (patches/0002-sans-llama-core.patch), mais son moz.yaml reste dans
+# l'arbre de Gecko, donc osv.dev continue de le signaler.
 third_party/llama.cpp CVE-2026-27940
 third_party/llama.cpp CVE-2026-33298
 third_party/llama.cpp CVE-2026-34159
@@ -163,11 +167,15 @@ third_party/llama.cpp CVE-2026-70638
 third_party/llama.cpp CVE-2026-70639
 third_party/llama.cpp CVE-2026-70640
 third_party/llama.cpp CVE-2026-86317
+third_party/llama.cpp CVE-2026-116467
+third_party/llama.cpp CVE-2026-116816
+third_party/llama.cpp CVE-2026-119052
 
 # Expat : à vérifier en priorité, le parseur XML est exposé au web.
 parser/expat CVE-2026-102633
 parser/expat CVE-2026-113351  # libexpat 2.7.2 through 2.9.0 Denial of Service via XML_ParserReset
 parser/expat CVE-2026-115506  # libexpat through 2.9.0 Denial of Service via Billion Laughs Detection Delay
+parser/expat CVE-2026-118370  # libexpat through 2.9.0 Integer Overflow in storeAtts via attIndex and nPrefixes
 parser/expat CVE-2026-50219
 parser/expat CVE-2026-56131
 parser/expat CVE-2026-56132
