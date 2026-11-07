@@ -21,9 +21,11 @@ endif
 
 ifeq (cocoa,$(MOZ_WIDGET_TOOLKIT))
 # Bundle dist/Core.app, construit à la fin du build (cible tools) comme
-# celui de Firefox (browser/app/Makefile.in), sans updater ni Assets.car. Le binaire va dans Contents/MacOS, XUL et les sous-bundles
-# (plugin-container.app…) et les dylibs aussi, tout le reste de dist/bin dans
-# Contents/Resources, qui sert de dossier GRE.
+# celui de Firefox (browser/app/Makefile.in), sans updater ni Assets.car.
+# Le binaire va dans Contents/MacOS, XUL, les sous-bundles
+# (plugin-container.app…) et les dylibs aussi, ChannelPrefs.framework dans
+# Contents/Frameworks, tout le reste de dist/bin dans Contents/Resources, qui
+# sert de dossier GRE.
 
 dist_dest = $(DIST)/$(MOZ_MACBUNDLE_NAME)
 MAC_APP_NAME = $(MOZ_APP_DISPLAYNAME)
