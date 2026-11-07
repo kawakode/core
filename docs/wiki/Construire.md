@@ -14,6 +14,8 @@ Toutes les commandes se lancent depuis la racine de Gecko, après
 | `win64-cross` | Windows x86_64 depuis Linux, sans LTO | `obj-core-win64` |
 | `win64-release` | Distribution Windows : LTO | `obj-core-win64-release` |
 | `win64-pgo-generate` / `win64-pgo-use` | Deux passes du build PGO Windows | `obj-core-win64-instr` / `obj-core-win64-pgo` |
+| `macos-aarch64-release` | Distribution macOS Apple Silicon depuis Linux : LTO | `obj-core-macos-aarch64-release` |
+| `macos-x86_64-release` | Distribution macOS Intel depuis Linux : LTO | `obj-core-macos-x86_64-release` |
 | `common` | Inclus par tous : composants retirés ou gardés | — |
 
 `common` retire le crash reporter, l'updater de Mozilla, le contrôle
@@ -97,15 +99,16 @@ Pour Windows, le script ajoute `msvcp140.dll`, `vcruntime140.dll` et
 
 ## Releases GitHub
 
-`.github/workflows/release.yml` construit Linux et Windows et publie une
-release quand un tag `v*` est poussé :
+`.github/workflows/release.yml` construit Linux, Windows et macOS (Apple
+Silicon et Intel) et publie une release quand un tag `v*` est poussé :
 
 ```sh
 git tag v153.6.0 && git push origin v153.6.0
 ```
 
-La release contient les deux archives et `SHA256SUMS`. Un suffixe avec des
-lettres (`v153.7.0-beta1`) donne une pré-version ; `v153.6.0-2` une nouvelle
+La release contient les archives Linux et Windows, les deux `.dmg` macOS et
+`SHA256SUMS`. Un suffixe avec des lettres (`v153.7.0-beta1`) donne une
+pré-version ; `v153.6.0-2` une nouvelle
 release de la même version de Gecko.
 
 Le workflow se lance aussi à la main (onglet Actions, « Run workflow ») :
@@ -122,8 +125,9 @@ runner auto-hébergé, déclaré dans les variables du dépôt :
 | `CORE_RUNNER` | Labels du runner en JSON, par exemple `["self-hosted","linux","core"]` |
 | `CORE_PGO` | `true` pour construire les tags avec PGO |
 
-Sur un runner auto-hébergé, `mach bootstrap`, Xvfb, `msitools`, `wine` et
-`libc6:i386` doivent déjà être installés.
+Sur un runner auto-hébergé, `mach bootstrap`, Xvfb, `msitools`, `wine`,
+`libc6:i386` et, pour macOS, `rsync` et un compilateur C (pour `rcodesign`)
+doivent déjà être installés.
 
 Sous systemd, un processus tué par l'OOM killer arrête tout le service du
 runner (`OOMPolicy=stop` par défaut), et le job est perdu sans journal. Avec
@@ -137,6 +141,34 @@ systemctl daemon-reload && systemctl restart actions.runner.<dépôt>.<runner>.s
 
 ## macOS
 
-Pas encore fait. Mozilla compile macOS par compilation croisée depuis Linux ;
-la distribution demandera un compte Apple Developer (signature et
-notarisation).
+Compilé depuis Linux, comme le fait Mozilla : `--enable-bootstrap` récupère
+clang et le SDK macOS, et `scripts/release/empaqueter.sh` les outils `dmg` et
+`hfsplus` pour l'image disque.
+
+```sh
+MOZCONFIG=$PWD/core/mozconfigs/macos-aarch64-release ./mach build   # ou macos-x86_64-release
+core/scripts/release/empaqueter.sh macos-aarch64 false <version> <dossier-sortie>
+```
+
+Le build produit `dist/Core.app` (assemblé par `core/app/Makefile.in`, avec
+`core/app/macbuild/Contents/Info.plist.in` et `core/branding/core.icns`).
+Pour un build de développement sur un Mac, lancer une copie
+(`cp -RL obj-…/dist/Core.app /tmp/`) plutôt que `dist/Core.app` : le
+bundle de dev renvoie par liens vers `core/`, hors de l'arbre de Gecko, et
+la sandbox des processus de contenu ne lit que l'arbre de Gecko (les
+acteurs de Core ne s'y chargeraient pas).
+
+`empaqueter.sh` le signe ad hoc avec `rcodesign` (compilé une fois dans
+`~/.mozbuild/rcodesign`) puis en fait `core-<version>-macos-arm64.dmg` ou
+`-x86_64.dmg`.
+
+Limites actuelles :
+
+- Pas de PGO : le profilage devrait lancer Core sur un Mac.
+- Signature ad hoc seulement. macOS refuse d'abord d'ouvrir l'app
+  téléchargée ; il faut l'autoriser une fois dans Réglages Système >
+  Confidentialité et sécurité (« Ouvrir quand même »). Une vraie signature
+  Developer ID et la notarisation demandent un compte Apple Developer
+  (99 $/an) et des secrets dans le dépôt.
+- Jamais lancé sur un vrai Mac à ce jour : menu d'application, raccourcis
+  Cmd, fenêtre cachée de macOS sont à vérifier.

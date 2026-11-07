@@ -1,0 +1,19 @@
+# Build de distribution macOS Intel (x86_64) compilé depuis Linux : LTO,
+# sans PGO (le profilage demanderait de lancer Core sur un Mac).
+# mach bootstrap récupère clang, le SDK macOS et, pour le .dmg, les outils
+# hfsplus et dmg. Voir scripts/release/construire.sh et empaqueter.sh.
+ac_add_options --enable-project=core
+ac_add_options --target=x86_64-apple-darwin
+ac_add_options --enable-bootstrap
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-core-macos-x86_64-release
+
+ac_add_options --enable-release
+ac_add_options --disable-debug
+ac_add_options --enable-optimize
+ac_add_options --enable-lto
+ac_add_options --disable-tests
+# Pas de symboles de débogage : ni crashreporter ni serveur de symboles pour
+# s'en servir, et rustc n'a pas à garder la debuginfo de gkrust en mémoire.
+ac_add_options --disable-debug-symbols
+
+. "$topsrcdir/core/mozconfigs/common"

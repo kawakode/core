@@ -51,7 +51,12 @@ tar -xJf core-<version>-linux-x86_64.tar.xz
 `core\core.exe`. Il n'y a pas encore d'installeur, et l'exécutable n'est pas
 signé : Windows SmartScreen peut demander une confirmation.
 
-**macOS** : pas encore disponible.
+**macOS** (expérimental, jamais testé sur un vrai Mac) : ouvrir
+`core-<version>-macos-arm64.dmg` (Apple Silicon) ou
+`core-<version>-macos-x86_64.dmg` (Intel) et glisser Core dans Applications.
+L'app n'est pas notarisée par Apple : au premier lancement, macOS la bloque ;
+l'autoriser dans Réglages Système > Confidentialité et sécurité, « Ouvrir
+quand même ».
 
 Core ne se met pas à jour tout seul : chaque nouvelle version de Gecko donne
 une nouvelle release. Pour construire Core vous-même, voir

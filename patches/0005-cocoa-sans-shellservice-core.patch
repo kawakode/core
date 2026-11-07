@@ -1,0 +1,16 @@
+diff --git a/widget/cocoa/nsMenuBarX.mm b/widget/cocoa/nsMenuBarX.mm
+index 9a491eee..00cd0389 100644
+--- a/widget/cocoa/nsMenuBarX.mm
++++ b/widget/cocoa/nsMenuBarX.mm
+@@ -21,7 +21,10 @@
+ #include "nsThreadUtils.h"
+ 
+ #include "nsIContent.h"
+-#include "nsIShellService.h"
++#ifdef MOZ_BUILD_APP_IS_BROWSER
++// En-tête généré par browser/ : absent des autres applications (Core).
++#  include "nsIShellService.h"
++#endif
+ #include "mozilla/dom/Document.h"
+ #include "nsIAppStartup.h"
+ #include "nsIStringBundle.h"

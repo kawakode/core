@@ -1,0 +1,68 @@
+diff --git a/dom/ipc/ContentParent.cpp b/dom/ipc/ContentParent.cpp
+index 01af265..f090ed7 100644
+--- a/dom/ipc/ContentParent.cpp
++++ b/dom/ipc/ContentParent.cpp
+@@ -2410,27 +2410,26 @@ static void CacheSandboxParams(std::vector<std::string>& aCachedParams) {
+ 
+   // TESTING_READ_PATH3, TESTING_READ_PATH4. In non-packaged builds,
+   // these are used to whitelist the repo dir and object dir respectively.
+-  nsresult rv;
++  // Core : sans omni.ja, IsPackagedBuild() est faux même dans le Core.app de
++  // release, dont l'Info.plist pointe vers le dépôt et l'objdir de la machine
++  // de build. Ces chemins n'existent pas sur le Mac de l'utilisateur : on
++  // n'ouvre alors rien de plus au bac à sable, au lieu de planter.
+   if (!mozilla::IsPackagedBuild()) {
+     // Repo dir
+     nsCOMPtr<nsIFile> repoDir;
+-    rv = nsMacUtilsImpl::GetRepoDir(getter_AddRefs(repoDir));
+-    if (NS_FAILED(rv)) {
+-      MOZ_CRASH("Failed to get path to repo dir");
++    if (NS_SUCCEEDED(nsMacUtilsImpl::GetRepoDir(getter_AddRefs(repoDir)))) {
++      nsCString repoDirPath;
++      (void)repoDir->GetNativePath(repoDirPath);
++      info.testingReadPath3 = repoDirPath.get();
+     }
+-    nsCString repoDirPath;
+-    (void)repoDir->GetNativePath(repoDirPath);
+-    info.testingReadPath3 = repoDirPath.get();
+ 
+     // Object dir
+     nsCOMPtr<nsIFile> objDir;
+-    rv = nsMacUtilsImpl::GetObjDir(getter_AddRefs(objDir));
+-    if (NS_FAILED(rv)) {
+-      MOZ_CRASH("Failed to get path to build object dir");
++    if (NS_SUCCEEDED(nsMacUtilsImpl::GetObjDir(getter_AddRefs(objDir)))) {
++      nsCString objDirPath;
++      (void)objDir->GetNativePath(objDirPath);
++      info.testingReadPath4 = objDirPath.get();
+     }
+-    nsCString objDirPath;
+-    (void)objDir->GetNativePath(objDirPath);
+-    info.testingReadPath4 = objDirPath.get();
+   }
+ 
+   // DEBUG_WRITE_DIR
+diff --git a/dom/media/gmp/GMPProcessParent.cpp b/dom/media/gmp/GMPProcessParent.cpp
+index 62505b9..f05df11 100644
+--- a/dom/media/gmp/GMPProcessParent.cpp
++++ b/dom/media/gmp/GMPProcessParent.cpp
+@@ -319,7 +319,9 @@ bool GMPProcessParent::FillMacSandboxInfo(MacSandboxInfo& aInfo) {
+     if (NS_FAILED(rv)) {
+       GMP_LOG_DEBUG(
+           "GMPProcessParent::FillMacSandboxInfo: failed to get repo dir");
+-      return false;
++      // Core : Core.app de release sans omni.ja, chemin de la machine de
++      // build absent ici. On continue sans lui au lieu de bloquer le CDM.
++      return true;
+     }
+     nsCString repoDirPath;
+     (void)repoDir->GetNativePath(repoDirPath);
+@@ -335,7 +337,7 @@ bool GMPProcessParent::FillMacSandboxInfo(MacSandboxInfo& aInfo) {
+     if (NS_FAILED(rv)) {
+       GMP_LOG_DEBUG(
+           "GMPProcessParent::FillMacSandboxInfo: failed to get object dir");
+-      return false;
++      return true;
+     }
+     nsCString objDirPath;
+     (void)objDir->GetNativePath(objDirPath);
