@@ -56,6 +56,19 @@ CoreGlue.prototype = {
       },
       messageManagerGroups: ["browsers"],
     });
+    // Menu clic droit des pages : côté enfant de Firefox, côté parent de
+    // Core (base/content/contextmenu.js affiche le menu). Toutes les pages,
+    // cadres compris, y compris les fenêtres surgissantes des extensions.
+    ChromeUtils.registerWindowActor("ContextMenu", {
+      parent: {
+        esModuleURI: "resource:///modules/CoreContextMenuParent.sys.mjs",
+      },
+      child: {
+        esModuleURI: "resource:///modules/ContextMenuChild.sys.mjs",
+        events: { contextmenu: { mozSystemGroup: true } },
+      },
+      allFrames: true,
+    });
     // Questions posées pendant l'installation d'une extension.
     ChromeUtils.importESModule(
       "resource:///modules/ExtensionsUI.sys.mjs"

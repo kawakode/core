@@ -37,6 +37,30 @@ pref("datareporting.healthreport.uploadEnabled", false);
 pref("app.shield.optoutstudies.enabled", false);
 pref("app.normandy.enabled", false);
 
+// Aucune connexion aux services de Mozilla ou de tiers au démarrage.
+// Remote Settings (firefox.settings.services.mozilla.com et ses CDN) : Core
+// n'utilise que les listes livrées avec chaque version (dumps de
+// services/settings) ; la mise à jour depuis Mozilla est à activer dans
+// Réglages > Listes de sécurité (patches/0007-remote-settings-opt-in-core.patch).
+pref("core.remotesettings.enabled", false);
+// Test de connectivité IPv4/IPv6 (detectportal.firefox.com, cloudflare-dns.com)
+// à chaque changement de réseau ; le portail captif est déjà désactivé par
+// Gecko.
+pref("network.connectivity-service.enabled", false);
+pref("network.captive-portal-service.enabled", false);
+// Pays deviné depuis l'adresse IP (location.services.mozilla.com).
+pref("browser.region.update.enabled", false);
+pref("browser.region.network.url", "");
+// Pas de Safe Browsing (listes et vérifications envoyées à Google).
+pref("browser.safebrowsing.malware.enabled", false);
+pref("browser.safebrowsing.phishing.enabled", false);
+pref("browser.safebrowsing.blockedURIs.enabled", false);
+pref("browser.safebrowsing.downloads.enabled", false);
+pref("browser.safebrowsing.downloads.remote.enabled", false);
+// Pas de mise à jour d'extensions système (aus5.mozilla.org) : Core n'en a pas.
+pref("extensions.systemAddon.update.enabled", false);
+pref("extensions.systemAddon.update.url", "");
+
 // Pas de vérification de mise à jour tant qu'il n'y a pas de canal.
 pref("app.update.enabled", false);
 pref("extensions.update.enabled", true);
@@ -171,3 +195,9 @@ pref("browser.ipProtection.userEnabled", false);
 // "accept" (continuer sans la page) ou "refuse" (page sans bouton
 // Continuer). Appliquée par modules/CoreCertErrorChild.sys.mjs.
 pref("core.certerrors.default", "ask");
+
+// Menus clic droit (modules/CoreContextMenu.sys.mjs) : éléments dans l'ordre,
+// "-" pour un séparateur. Modifiables dans Réglages > Menus clic droit.
+// Chaque élément ne s'affiche que là où il a un sens (lien, image, champ…).
+pref("core.contextmenu.page", "exit-fullscreen,-,back,forward,reload,-,bookmark-page,-,link-tab,link-window,link-private,-,link-bookmark,link-save,link-copy,-,image-tab,image-copy,image-copy-url,image-save,-,media-play,media-mute,media-loop,media-controls,media-fullscreen,-,media-tab,media-copy-url,media-save,-,undo,redo,-,cut,copy,paste,paste-plain,delete,-,search,-,save-page,select-all,-,reveal-password,-,frame-tab,frame-reload,-,view-source,-,extensions");
+pref("core.contextmenu.tab", "new-tab,-,reload-tab,duplicate-tab,move-to-window,-,copy-tab-url,bookmark-tab,-,close-right,close-others,close-tab,-,extensions");

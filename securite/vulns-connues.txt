@@ -176,6 +176,7 @@ parser/expat CVE-2026-102633
 parser/expat CVE-2026-113351  # libexpat 2.7.2 through 2.9.0 Denial of Service via XML_ParserReset
 parser/expat CVE-2026-115506  # libexpat through 2.9.0 Denial of Service via Billion Laughs Detection Delay
 parser/expat CVE-2026-118370  # libexpat through 2.9.0 Integer Overflow in storeAtts via attIndex and nPrefixes
+parser/expat CVE-2026-124317
 parser/expat CVE-2026-50219
 parser/expat CVE-2026-56131
 parser/expat CVE-2026-56132

@@ -1,0 +1,33 @@
+diff --git a/services/settings/Utils.sys.mjs b/services/settings/Utils.sys.mjs
+index 76f69ab7..8290e635 100644
+--- a/services/settings/Utils.sys.mjs
++++ b/services/settings/Utils.sys.mjs
+@@ -119,6 +119,15 @@ export var Utils = {
+     ) {
+       return true;
+     }
++    if (
++      AppConstants.MOZ_BUILD_APP == "core" &&
++      !Services.prefs.getBoolPref("core.remotesettings.enabled", false)
++    ) {
++      // Core : aucune synchronisation avec les serveurs de Mozilla tant que
++      // l'utilisateur ne l'a pas activée. Les listes livrées avec la version
++      // (dumps) restent utilisées.
++      return true;
++    }
+     return Services.policies?.isAllowed("remoteSettings") === false;
+   },
+ 
+@@ -235,6 +244,12 @@ export var Utils = {
+    * @returns a Response object
+    */
+   async fetch(input, init = {}) {
++    if (Utils.shouldSkipRemoteActivity) {
++      // Couvre aussi les pièces jointes (Attachments.sys.mjs), qui ne
++      // vérifient pas shouldSkipRemoteActivity : elles retombent sur les
++      // dumps ou le cache, comme hors ligne.
++      throw new TypeError("NetworkError: Remote Settings disabled");
++    }
+     return new Promise(function (resolve, reject) {
+       const request = new ServiceRequest();
+       function fallbackOrReject(err) {

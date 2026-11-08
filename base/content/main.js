@@ -20,7 +20,21 @@ var gTabs = {
   // d'extensions tabs.onUpdated, webNavigation.
   progressListeners: new Set(),
 
-  open(uri, { select = true, openWindowInfo = null, remoteType = null, notRemote = false, triggeringPrincipal = null } = {}) {
+  // loadOptions : options de chargement en plus du principal (referrerInfo,
+  // policyContainer, postData…), index : position de l'onglet (à la fin
+  // sinon).
+  open(
+    uri,
+    {
+      select = true,
+      openWindowInfo = null,
+      remoteType = null,
+      notRemote = false,
+      triggeringPrincipal = null,
+      loadOptions = null,
+      index = null,
+    } = {}
+  ) {
     let tab = document.createElement("div");
     tab.className = "tab";
     tab.setAttribute("role", "tab");
@@ -55,9 +69,14 @@ var gTabs = {
       this.close(entry);
     });
 
-    document.getElementById("tabstrip").append(tab);
-    this.list.push(entry);
-    this.attachBrowser(entry, uri, { openWindowInfo, remoteType, notRemote, triggeringPrincipal });
+    let next = index == null ? null : this.list[index];
+    document.getElementById("tabstrip").insertBefore(tab, next?.tab ?? null);
+    if (next) {
+      this.list.splice(index, 0, entry);
+    } else {
+      this.list.push(entry);
+    }
+    this.attachBrowser(entry, uri, { openWindowInfo, remoteType, notRemote, triggeringPrincipal, loadOptions });
     this.dispatch(entry, "TabOpen");
 
     if (select || !this.selected) {
@@ -66,7 +85,17 @@ var gTabs = {
     return entry;
   },
 
-  attachBrowser(entry, uri, { openWindowInfo = null, remoteType = null, notRemote = false, triggeringPrincipal = null } = {}) {
+  attachBrowser(
+    entry,
+    uri,
+    {
+      openWindowInfo = null,
+      remoteType = null,
+      notRemote = false,
+      triggeringPrincipal = null,
+      loadOptions = null,
+    } = {}
+  ) {
     let browser = document.createXULElement("browser");
     browser.permanentKey = new (Cu.getGlobalForObject(Services).Object)();
     // notRemote : onglet ouvert par une page du processus principal (voir
@@ -97,10 +126,25 @@ var gTabs = {
     this.watch(entry);
     if (uri) {
       browser.fixupAndLoadURIString(uri, {
+        ...loadOptions,
         triggeringPrincipal:
           triggeringPrincipal ?? Services.scriptSecurityManager.getSystemPrincipal(),
       });
     }
+  },
+
+  // Onglet ouvert depuis la page affichée (lien du menu clic droit) : en
+  // arrière-plan, juste après l'onglet courant et après ceux déjà ouverts
+  // depuis lui, comme Firefox.
+  openRelated(uri, options = {}) {
+    let from = this.selected;
+    let index = this.list.indexOf(from) + 1;
+    if (this._related?.from == from && this.list.includes(this._related.last)) {
+      index = this.list.indexOf(this._related.last) + 1;
+    }
+    let entry = this.open(uri, { ...options, select: false, index });
+    this._related = { from, last: entry };
+    return entry;
   },
 
   // Événements de tabbrowser (TabOpen, TabSelect, TabClose…), émis sur
@@ -140,6 +184,7 @@ var gTabs = {
       return;
     }
     let previous = this.selected;
+    this._related = null;
     if (this.selected) {
       this.selected.lastSeen = Date.now();
       this.selected.tab.removeAttribute("selected");
@@ -373,20 +418,8 @@ const gToolbar = {
     document.getElementById("newtab").addEventListener("click", () => gTabs.open(null));
     this.initMenu();
     this.urlbar.addEventListener("keydown", event => {
-      if (event.key == "Enter" && this.urlbar.value.trim()) {
-        let text = this.urlbar.value.trim();
-        let options = {
-          triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
-        };
-        // Des mots : le moteur choisi dans les réglages (modules/CoreSearch).
-        // Sans moteur, tout est ouvert comme une adresse.
-        let search = CoreSearch.searchURLFor(text);
-        if (search) {
-          browser().loadURI(Services.io.newURI(search), options);
-        } else {
-          browser().fixupAndLoadURIString(text, options);
-        }
-        browser().focus();
+      if (event.key == "Enter") {
+        this.loadInput();
       } else if (event.key == "Escape") {
         this.update();
       }
@@ -439,6 +472,28 @@ const gToolbar = {
       "menu-quit": quit,
     };
     menu.addEventListener("command", event => commands[event.target.id]?.());
+  },
+
+  // Ouvre ce qui est saisi dans la barre d'adresse (Entrée, « Coller et
+  // aller » du menu clic droit).
+  loadInput() {
+    let value = this.urlbar.value.trim();
+    let browser = gTabs.selected?.browser;
+    if (!value || !browser) {
+      return;
+    }
+    let options = {
+      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+    };
+    // Des mots : le moteur choisi dans les réglages (modules/CoreSearch).
+    // Sans moteur, tout est ouvert comme une adresse.
+    let search = CoreSearch.searchURLFor(value);
+    if (search) {
+      browser.loadURI(Services.io.newURI(search), options);
+    } else {
+      browser.fixupAndLoadURIString(value, options);
+    }
+    browser.focus();
   },
 
   update() {
@@ -817,6 +872,7 @@ window.addEventListener(
     gTitlebar.init();
     gDownloads.init().catch(console.error);
     gBookmarks.init();
+    gContextMenus.init();
     window.addEventListener("keydown", onKeyDown, true);
 
     // window.close() d'une page (fenêtres surgissantes, connexions OAuth) :

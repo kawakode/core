@@ -409,7 +409,8 @@ body {
   visibility: hidden;
 }
 
-/* Menus et panneaux (menu ≡, téléchargements, marque-pages) : le popup de
+/* Menus et panneaux (menu ≡, téléchargements, marque-pages, menus clic
+ * droit .core-menu) : le popup de
  * toolkit en aplat, bordure de 1 px, sans ombre. Une seule règle pour tous ;
  * les sous-menus héritent des variables. */
 
@@ -417,7 +418,8 @@ body {
 #download-menu,
 #downloads-panel,
 #bookmark-panel,
-.bookmarks-popup {
+.bookmarks-popup,
+.core-menu {
   --panel-background-color: var(--core-bg-raised);
   --panel-text-color: var(--core-text);
   --panel-border-color: var(--core-border);
@@ -427,21 +429,22 @@ body {
   --menuitem-border-radius: var(--core-radius-small);
 }
 
-#app-menu {
+#app-menu,
+.core-menu {
   min-width: 200px;
 }
 
-:is(#app-menu, #download-menu, .bookmarks-popup) :is(menuitem, menu) {
+:is(#app-menu, #download-menu, .bookmarks-popup, .core-menu) :is(menuitem, menu) {
   min-height: 28px;
   max-width: 420px;
 }
 
-:is(#app-menu, #download-menu, .bookmarks-popup) :is(menuitem, menu)[_moz-menuactive] {
+:is(#app-menu, #download-menu, .bookmarks-popup, .core-menu) :is(menuitem, menu)[_moz-menuactive] {
   background-color: var(--core-bg-hover);
   color: var(--core-text);
 }
 
-:is(#app-menu, #download-menu, .bookmarks-popup) .menu-accel {
+:is(#app-menu, #download-menu, .bookmarks-popup, .core-menu) .menu-accel {
   color: var(--core-text-muted);
 }
 
