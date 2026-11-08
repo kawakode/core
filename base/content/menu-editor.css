@@ -1,0 +1,150 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* Éditeur des menus clic droit : deux colonnes, des lignes de 28 px comme
+ * dans les menus (design.md, Menus). */
+
+body {
+  max-width: none;
+  padding: 16px 20px;
+}
+
+#menu-choice {
+  display: flex;
+  gap: 8px;
+}
+
+#menu-choice > button[aria-selected="true"] {
+  border-color: var(--core-accent);
+  color: var(--core-accent);
+}
+
+#columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.item-list {
+  min-height: 56px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--core-border);
+  border-radius: var(--core-radius);
+  background: var(--core-bg);
+}
+
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding-inline-start: 8px;
+  border-radius: var(--core-radius-small);
+  background: var(--core-bg-raised);
+  cursor: grab;
+}
+
+.item + .item {
+  margin-top: 2px;
+}
+
+.item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-group {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9em;
+}
+
+/* Séparateur : une ligne, comme dans le menu. */
+.item.separator > .item-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--core-text-muted);
+}
+
+.item.separator > .item-label::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--core-border);
+}
+
+.item .icon-button {
+  width: 24px;
+  height: 24px;
+}
+
+.item .icon-button[disabled] {
+  visibility: hidden;
+}
+
+.action-up,
+.action-down {
+  background-image: url("chrome://core/content/icons/back.svg");
+}
+
+.action-up {
+  transform: rotate(90deg);
+}
+
+.action-down {
+  transform: rotate(-90deg);
+}
+
+.action-remove {
+  background-image: url("chrome://core/content/icons/close.svg");
+}
+
+.action-add {
+  background-image: url("chrome://core/content/icons/plus.svg");
+}
+
+.item.dragging {
+  opacity: 0.5;
+}
+
+.item.drop-before::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: -2px;
+  height: 2px;
+  background: var(--core-accent);
+}
+
+.item-list.drop-end {
+  border-bottom-color: var(--core-accent);
+  border-bottom-width: 2px;
+}
+
+.item-list.drop-remove {
+  border-color: var(--core-accent);
+}
+
+.empty {
+  padding: 6px 8px;
+}
+
+.actions {
+  margin: 12px 0 0;
+}
+
+@media (max-width: 560px) {
+  #columns {
+    grid-template-columns: 1fr;
+  }
+}

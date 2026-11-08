@@ -7,10 +7,17 @@ EXTRA_JS_MODULES += [
     "BuiltInThemes.sys.mjs",
     "CoreBookmarks.sys.mjs",
     "CoreCertErrorChild.sys.mjs",
+    "CoreContextMenu.sys.mjs",
+    "CoreContextMenuParent.sys.mjs",
     "CoreErrorPageChild.sys.mjs",
     "CoreTabIconChild.sys.mjs",
     "CoreTabIconParent.sys.mjs",
     "ExtensionsUI.sys.mjs",
     "HomePage.sys.mjs",
     "LocalExtensions.sys.mjs",
+]
+
+# Côté enfant du menu clic droit, repris tel quel de Firefox.
+EXTRA_JS_MODULES += [
+    "/browser/actors/ContextMenuChild.sys.mjs",
 ]

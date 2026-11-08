@@ -22,6 +22,8 @@
   <script src="chrome://core/content/main.js"></script>
   <script src="chrome://core/content/downloads.js"></script>
   <script src="chrome://core/content/bookmarks.js"></script>
+  <script src="chrome://global/content/contentAreaUtils.js"></script>
+  <script src="chrome://core/content/contextmenu.js"></script>
 </head>
 <body>
   <!-- Barre de titre : onglets, puis les boutons de la fenêtre quand Core
@@ -135,6 +137,27 @@
     <xul:menuseparator />
     <xul:menuitem id="download-menu-copy" label="Copier l'adresse d'origine" />
     <xul:menuitem id="download-menu-remove" label="Retirer de la liste" />
+  </xul:menupopup>
+  <!-- Menus clic droit (contextmenu.js). Ceux des pages et des onglets sont
+       remplis à chaque ouverture selon la disposition choisie dans les
+       réglages. Les identifiants sont ceux de Firefox, que l'API menus des
+       extensions reconnaît. -->
+  <xul:menupopup class="core-menu" id="contentAreaContextMenu" />
+  <xul:menupopup class="core-menu" id="tabContextMenu" />
+  <xul:menupopup class="core-menu" id="extension-button-context">
+    <xul:menuitem id="extension-context-manage" label="Gérer l'extension" />
+    <xul:menuitem id="extension-context-remove" label="Supprimer l'extension" />
+  </xul:menupopup>
+  <xul:menupopup class="core-menu" id="chrome-edit-context">
+    <xul:menuitem core-command="cmd_undo" label="Annuler" acceltext="Ctrl+Z" />
+    <xul:menuseparator />
+    <xul:menuitem core-command="cmd_cut" label="Couper" acceltext="Ctrl+X" />
+    <xul:menuitem core-command="cmd_copy" label="Copier" acceltext="Ctrl+C" />
+    <xul:menuitem core-command="cmd_paste" label="Coller" acceltext="Ctrl+V" />
+    <xul:menuitem id="chrome-edit-paste-go" label="Coller et aller" />
+    <xul:menuitem core-command="cmd_delete" label="Supprimer" />
+    <xul:menuseparator />
+    <xul:menuitem core-command="cmd_selectAll" label="Tout sélectionner" acceltext="Ctrl+A" />
   </xul:menupopup>
   <!-- Panneaux des extensions (fenêtres surgissantes des boutons). -->
   <xul:popupset id="mainPopupSet"></xul:popupset>

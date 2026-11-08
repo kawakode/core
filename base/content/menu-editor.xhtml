@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+
+<!-- Éditeur des menus clic droit (A1) : ordre des éléments, séparateurs,
+     éléments retirés ou ajoutés. Chaque changement est enregistré tout de
+     suite et vaut pour le prochain menu ouvert. -->
+<html xmlns="http://www.w3.org/1999/xhtml"
+      windowtype="core:menu-editor"
+      width="720" height="760">
+<head>
+  <meta http-equiv="Content-Security-Policy"
+        content="script-src chrome: resource:; object-src 'none';" />
+  <title>Menus clic droit — Core</title>
+  <link rel="stylesheet" href="chrome://global/skin/global.css" />
+  <link rel="stylesheet" href="chrome://core/content/pages.css" />
+  <link rel="stylesheet" href="chrome://core/content/menu-editor.css" />
+  <script src="chrome://core/content/menu-editor.js"></script>
+</head>
+<body>
+  <h1>Menus clic droit</h1>
+  <div id="menu-choice" role="tablist" aria-label="Menu à modifier">
+    <button role="tab" data-menu="page" aria-selected="true">Pages</button>
+    <button role="tab" data-menu="tab" aria-selected="false">Onglets</button>
+  </div>
+  <p class="muted">
+    Glissez les éléments pour les ranger. Chacun ne s'affiche que là où il
+    sert : « Copier le lien » sur un lien, « Couper » dans un champ de
+    saisie, etc. Les séparateurs inutiles sont masqués.
+  </p>
+  <div id="columns">
+    <section aria-labelledby="current-title">
+      <h2 id="current-title">Dans le menu</h2>
+      <ol id="current" class="item-list"></ol>
+    </section>
+    <section aria-labelledby="available-title">
+      <h2 id="available-title">À ajouter</h2>
+      <ul id="available" class="item-list"></ul>
+    </section>
+  </div>
+  <p class="actions">
+    <button id="reset">Rétablir le menu par défaut</button>
+  </p>
+</body>
+</html>
