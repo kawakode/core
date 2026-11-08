@@ -20,7 +20,7 @@ var gTabs = {
   // d'extensions tabs.onUpdated, webNavigation.
   progressListeners: new Set(),
 
-  open(uri, { select = true, openWindowInfo = null, remoteType = null, triggeringPrincipal = null } = {}) {
+  open(uri, { select = true, openWindowInfo = null, remoteType = null, notRemote = false, triggeringPrincipal = null } = {}) {
     let tab = document.createElement("div");
     tab.className = "tab";
     tab.setAttribute("role", "tab");
@@ -57,7 +57,7 @@ var gTabs = {
 
     document.getElementById("tabstrip").append(tab);
     this.list.push(entry);
-    this.attachBrowser(entry, uri, { openWindowInfo, remoteType, triggeringPrincipal });
+    this.attachBrowser(entry, uri, { openWindowInfo, remoteType, notRemote, triggeringPrincipal });
     this.dispatch(entry, "TabOpen");
 
     if (select || !this.selected) {
@@ -66,13 +66,12 @@ var gTabs = {
     return entry;
   },
 
-  attachBrowser(entry, uri, { openWindowInfo = null, remoteType = null, triggeringPrincipal = null } = {}) {
+  attachBrowser(entry, uri, { openWindowInfo = null, remoteType = null, notRemote = false, triggeringPrincipal = null } = {}) {
     let browser = document.createXULElement("browser");
     browser.permanentKey = new (Cu.getGlobalForObject(Services).Object)();
-    // NOT_REMOTE : onglet ouvert par une page du processus principal (voir
+    // notRemote : onglet ouvert par une page du processus principal (voir
     // browserDOMWindow.createContentWindow). Il naît dans ce processus, puis
     // DocumentLoadListener le bascule vers le bon processus au chargement.
-    let notRemote = remoteType === E10SUtils.NOT_REMOTE;
     for (let [name, value] of Object.entries({
       type: "content",
       ...(notRemote ? {} : { remote: "true" }),
@@ -658,8 +657,7 @@ window.browserDOMWindow = {
     let entry = gTabs.open(null, {
       select: where != Ci.nsIBrowserDOMWindow.OPEN_NEWTAB_BACKGROUND,
       openWindowInfo,
-      remoteType:
-        openWindowInfo && !openWindowInfo.isRemote ? E10SUtils.NOT_REMOTE : null,
+      notRemote: !!openWindowInfo && !openWindowInfo.isRemote,
     });
     return entry.browser.browsingContext;
   },
