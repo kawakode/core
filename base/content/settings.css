@@ -60,3 +60,59 @@ section > label > input {
 .actions > button + button {
   margin-inline-start: 8px;
 }
+
+h3 {
+  margin: 12px 0 0;
+  font-size: 1em;
+  font-weight: 600;
+}
+
+.field {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0 0;
+}
+
+.field[hidden] {
+  display: none;
+}
+
+.field > :is(select, input) {
+  flex: 1;
+  min-width: 0;
+}
+
+#search-keyword {
+  flex: 0 1 12em;
+}
+
+#search-engines {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+#search-engines > li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--core-border);
+}
+
+#search-engines .engine-text {
+  flex: 1;
+  min-width: 0;
+}
+
+#search-engines .engine-url {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--core-text-muted);
+}
+
+.error {
+  color: var(--core-danger);
+}
