@@ -1,6 +1,9 @@
-# Construit Core pour Linux et Windows, puis publie une release GitHub avec
-# les archives quand un tag v* est poussé (v153.5.0, v153.5.0-2… ; un suffixe
-# avec des lettres, comme v153.6.0-beta1, donne une pré-version).
+# Construit Core pour Linux, Windows et macOS (Apple Silicon et Intel), puis
+# publie une release GitHub avec les archives quand un tag v* est poussé
+# (v153.5.0, v153.5.0-2… ; un suffixe avec des lettres, comme
+# v153.6.0-beta1, donne une pré-version). Windows et macOS sont compilés
+# depuis Linux, comme dans la CI de Mozilla ; macOS toujours sans PGO, et
+# signé ad hoc seulement (pas de certificat Developer ID).
 #
 # Lancement manuel depuis l'onglet Actions (« Run workflow ») : build seul,
 # archives téléchargeables depuis le run. Pour publier (ou republier après
@@ -21,7 +24,7 @@ on:
       cibles:
         description: Plateformes à construire
         type: choice
-        options: [toutes, linux, win64]
+        options: [toutes, linux, win64, macos]
         default: toutes
       pgo:
         description: Optimisation par profil (PGO), runner auto-hébergé conseillé
@@ -49,7 +52,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cible: ${{ fromJSON((inputs.cibles == 'linux' && '["linux"]') || (inputs.cibles == 'win64' && '["win64"]') || '["linux","win64"]') }}
+        cible: ${{ fromJSON((inputs.cibles == 'linux' && '["linux"]') || (inputs.cibles == 'win64' && '["win64"]') || (inputs.cibles == 'macos' && '["macos-aarch64","macos-x86_64"]') || '["linux","win64","macos-aarch64","macos-x86_64"]') }}
     env:
       CIBLE: ${{ matrix.cible }}
       PGO: ${{ (github.event_name == 'push' && vars.CORE_PGO == 'true') || inputs.pgo == true }}
@@ -72,7 +75,8 @@ jobs:
       - name: Construire
         working-directory: ${{ env.GECKO_DIR }}
         run: |
-          if [ "$PGO" = true ]; then
+          # macOS est construit sans PGO, donc sans serveur X.
+          if [ "$PGO" = true ] && [[ "$CIBLE" != macos-* ]]; then
             Xvfb :99 -screen 0 1920x1080x24 &
             export DISPLAY=:99
           fi
