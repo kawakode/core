@@ -303,18 +303,11 @@ var gContextMenus = {
     return ctx;
   },
 
-  // Moteur de recherche choisi par l'utilisateur, s'il y en a un (Core n'en
-  // a aucun par défaut).
+  // Moteur de recherche choisi dans les réglages (modules/CoreSearch.sys.mjs),
+  // s'il y en a un : Core n'en a aucun par défaut.
   searchEngine() {
     try {
-      if (!Services.search.isInitialized) {
-        // Prêt pour le prochain menu.
-        Services.search.init().catch(() => {});
-        return null;
-      }
-      return PrivateBrowsingUtils.isWindowPrivate(window)
-        ? Services.search.defaultPrivateEngine
-        : Services.search.defaultEngine;
+      return CoreSearch.defaultEngine;
     } catch (e) {
       return null;
     }
@@ -639,10 +632,8 @@ var gContextMenus = {
         if (!engine) {
           break;
         }
-        let submission = engine.getSubmission(data.selectionInfo.fullText.trim(), null, "contextmenu");
-        gTabs.open(submission.uri.spec, {
+        gTabs.open(CoreSearch.submission(engine, data.selectionInfo.fullText.trim()), {
           index: gTabs.list.indexOf(gTabs.selected) + 1,
-          loadOptions: { postData: submission.postData },
         });
         break;
       }

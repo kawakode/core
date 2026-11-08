@@ -4,16 +4,10 @@
 
 "use strict";
 
-<<<<<<< HEAD
-// Fenêtre de réglages : sandbox des processus de contenu, barre de titre,
-// historique, téléchargements, barre de marque-pages, menus clic droit,
-// extensions installées depuis un fichier et réponse par défaut aux
-// certificats invalides.
-=======
-// Fenêtre de réglages : moteurs de recherche, sandbox des processus de contenu, barre de titre,
-// historique, téléchargements, barre de marque-pages, extensions installées
-// depuis un fichier et réponse par défaut aux certificats invalides.
->>>>>>> origin/main
+// Fenêtre de réglages : moteurs de recherche, sandbox des processus de
+// contenu, barre de titre, historique, téléchargements, barre de
+// marque-pages, menus clic droit, extensions installées depuis un fichier
+// et réponse par défaut aux certificats invalides.
 
 const SANDBOX_PREF = "security.sandbox.content.level";
 
