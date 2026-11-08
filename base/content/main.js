@@ -69,9 +69,13 @@ var gTabs = {
   attachBrowser(entry, uri, { openWindowInfo = null, remoteType = null, triggeringPrincipal = null } = {}) {
     let browser = document.createXULElement("browser");
     browser.permanentKey = new (Cu.getGlobalForObject(Services).Object)();
+    // NOT_REMOTE : onglet ouvert par une page du processus principal (voir
+    // browserDOMWindow.createContentWindow). Il naît dans ce processus, puis
+    // DocumentLoadListener le bascule vers le bon processus au chargement.
+    let notRemote = remoteType === E10SUtils.NOT_REMOTE;
     for (let [name, value] of Object.entries({
       type: "content",
-      remote: "true",
+      ...(notRemote ? {} : { remote: "true" }),
       maychangeremoteness: "true",
       message: "true",
       messagemanagergroup: "browsers",
@@ -83,10 +87,12 @@ var gTabs = {
     if (openWindowInfo) {
       browser.openWindowInfo = openWindowInfo;
     }
-    browser.setAttribute(
-      "remoteType",
-      remoteType ?? (uri ? this.remoteTypeFor(uri) : E10SUtils.WEB_REMOTE_TYPE)
-    );
+    if (!notRemote) {
+      browser.setAttribute(
+        "remoteType",
+        remoteType ?? (uri ? this.remoteTypeFor(uri) : E10SUtils.WEB_REMOTE_TYPE)
+      );
+    }
     entry.browser = browser;
     document.getElementById("browsers").append(browser);
     this.watch(entry);
@@ -641,8 +647,21 @@ window.browserDOMWindow = {
     }).browser;
   },
 
-  createContentWindow() {
-    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
+  // Lien target=_blank ou window.open() dans une page du processus principal
+  // (about:addons : lien vers addons.mozilla.org, « Aide des modules »…).
+  // Comme Firefox, l'onglet naît dans ce processus pour que l'ouvreur y ait
+  // accès tout de suite, sans adresse : la page ouvrante la charge ensuite.
+  createContentWindow(uri, openWindowInfo, where) {
+    if (where == Ci.nsIBrowserDOMWindow.OPEN_CURRENTWINDOW) {
+      return gTabs.selected.browser.browsingContext;
+    }
+    let entry = gTabs.open(null, {
+      select: where != Ci.nsIBrowserDOMWindow.OPEN_NEWTAB_BACKGROUND,
+      openWindowInfo,
+      remoteType:
+        openWindowInfo && !openWindowInfo.isRemote ? E10SUtils.NOT_REMOTE : null,
+    });
+    return entry.browser.browsingContext;
   },
 
   openURI(uri) {
