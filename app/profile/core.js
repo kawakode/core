@@ -20,6 +20,14 @@ pref("network.dns.disablePrefetch", true);
 pref("network.http.speculative-parallel-limit", 0);
 pref("browser.urlbar.speculativeConnect.enabled", false);
 
+// Recherche depuis la barre d'adresse : aucun moteur par défaut, l'utilisateur
+// ajoute les siens dans les réglages (modules/CoreSearch.sys.mjs). Le service
+// de recherche de toolkit (moteurs tirés de Remote Settings) n'est jamais
+// chargé : URIFixup ne lui demande plus rien.
+pref("keyword.enabled", false);
+pref("core.search.engines", "[]");
+pref("core.search.default", "");
+
 // Pas de télémétrie ni d'études.
 pref("toolkit.telemetry.enabled", false);
 pref("toolkit.telemetry.unified", false);
