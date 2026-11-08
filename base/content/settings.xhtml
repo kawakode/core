@@ -17,6 +17,41 @@
 </head>
 <body>
   <h1>Réglages</h1>
+  <section id="search">
+    <h2>Recherche</h2>
+    <p class="help flush">
+      Ce que vous tapez dans la barre d'adresse et qui n'est pas une adresse
+      est envoyé à ce moteur. Core n'en choisit aucun pour vous.
+    </p>
+    <p class="field">
+      <select id="search-default" aria-label="Moteur de la barre d'adresse"></select>
+    </p>
+    <ul id="search-engines"></ul>
+    <h3>Ajouter un moteur</h3>
+    <p class="field">
+      <select id="search-catalog" aria-label="Moteur à ajouter"></select>
+    </p>
+    <p class="field" id="search-instance-field" hidden="true">
+      <input id="search-instance" type="text" placeholder="Adresse de l'instance, ex. searx.example.org"
+             aria-label="Adresse de l'instance" />
+    </p>
+    <p class="field" id="search-custom-fields" hidden="true">
+      <input id="search-name" type="text" placeholder="Nom" aria-label="Nom" />
+      <input id="search-url" type="text" placeholder="https://exemple.org/search?q=%s"
+             aria-label="Adresse de recherche" />
+    </p>
+    <p class="field">
+      <input id="search-keyword" type="text" placeholder="Mot-clé (facultatif)"
+             aria-label="Mot-clé" />
+      <button id="search-add" class="primary">Ajouter</button>
+    </p>
+    <p id="search-error" class="help flush error" hidden="true"></p>
+    <p class="help flush">
+      Avec un mot-clé, « w lune » cherche « lune » avec ce moteur, quel que
+      soit le moteur de la barre d'adresse. Dans l'adresse d'un moteur
+      personnalisé, %s est remplacé par les mots recherchés.
+    </p>
+  </section>
   <section>
     <label>
       <input id="sandbox" type="checkbox" />
