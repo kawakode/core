@@ -37,6 +37,30 @@ pref("datareporting.healthreport.uploadEnabled", false);
 pref("app.shield.optoutstudies.enabled", false);
 pref("app.normandy.enabled", false);
 
+// Aucune connexion aux services de Mozilla ou de tiers au démarrage.
+// Remote Settings (firefox.settings.services.mozilla.com et ses CDN) : Core
+// n'utilise que les listes livrées avec chaque version (dumps de
+// services/settings) ; la mise à jour depuis Mozilla est à activer dans
+// Réglages > Listes de sécurité (patches/0007-remote-settings-opt-in-core.patch).
+pref("core.remotesettings.enabled", false);
+// Test de connectivité IPv4/IPv6 (detectportal.firefox.com, cloudflare-dns.com)
+// à chaque changement de réseau ; le portail captif est déjà désactivé par
+// Gecko.
+pref("network.connectivity-service.enabled", false);
+pref("network.captive-portal-service.enabled", false);
+// Pays deviné depuis l'adresse IP (location.services.mozilla.com).
+pref("browser.region.update.enabled", false);
+pref("browser.region.network.url", "");
+// Pas de Safe Browsing (listes et vérifications envoyées à Google).
+pref("browser.safebrowsing.malware.enabled", false);
+pref("browser.safebrowsing.phishing.enabled", false);
+pref("browser.safebrowsing.blockedURIs.enabled", false);
+pref("browser.safebrowsing.downloads.enabled", false);
+pref("browser.safebrowsing.downloads.remote.enabled", false);
+// Pas de mise à jour d'extensions système (aus5.mozilla.org) : Core n'en a pas.
+pref("extensions.systemAddon.update.enabled", false);
+pref("extensions.systemAddon.update.url", "");
+
 // Pas de vérification de mise à jour tant qu'il n'y a pas de canal.
 pref("app.update.enabled", false);
 pref("extensions.update.enabled", true);

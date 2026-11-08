@@ -6,8 +6,9 @@
 
 // Fenêtre de réglages : moteurs de recherche, sandbox des processus de
 // contenu, barre de titre, historique, téléchargements, barre de
-// marque-pages, menus clic droit, extensions installées depuis un fichier
-// et réponse par défaut aux certificats invalides.
+// marque-pages, menus clic droit, extensions installées depuis un fichier,
+// réponse par défaut aux certificats invalides et mise à jour des listes de
+// sécurité.
 
 const SANDBOX_PREF = "security.sandbox.content.level";
 
@@ -157,6 +158,31 @@ const gHistory = {
       } else {
         Services.prefs.setBoolPref(this.PREF, false);
       }
+    });
+  },
+};
+
+// Mise à jour des listes Remote Settings depuis Mozilla : désactivée par
+// défaut, Core n'utilise alors que les listes livrées avec la version
+// (patches/0007-remote-settings-opt-in-core.patch).
+const gRemoteSettings = {
+  PREF: "core.remotesettings.enabled",
+
+  init() {
+    let checkbox = document.getElementById("remote-settings");
+    checkbox.checked = Services.prefs.getBoolPref(this.PREF, false);
+    checkbox.addEventListener("change", () => {
+      if (!checkbox.checked) {
+        Services.prefs.clearUserPref(this.PREF);
+        return;
+      }
+      Services.prefs.setBoolPref(this.PREF, true);
+      // Première mise à jour tout de suite, puis une fois par jour
+      // (minuteur services-settings-poll-changes de toolkit).
+      let { RemoteSettings } = ChromeUtils.importESModule(
+        "resource://services-settings/remote-settings.sys.mjs"
+      );
+      RemoteSettings.pollChanges({ trigger: "manual" }).catch(console.error);
     });
   },
 };
@@ -364,6 +390,7 @@ window.addEventListener(
     gDownloads.init();
     gCertError.init();
     gHistory.init();
+    gRemoteSettings.init();
     gBookmarksToolbar.init();
     gExtensions.init();
     gContextMenuEditor.init();

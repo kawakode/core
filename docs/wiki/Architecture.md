@@ -172,6 +172,7 @@ Le principe est de ne pas patcher Gecko. Les exceptions sont petites, dans
 | `0002-sans-llama-core` | Ne pas compiler llama.cpp (`mozinference`), construit d'office sur desktop : aucune IA dans Core |
 | `0003-llvm-dlltool-core` | Le build Windows de `core` a besoin de `llvm-dlltool`, comme celui de Firefox |
 | `0004-hevc-ffvpx-core` | Activer le décodeur H.265/HEVC de FFmpeg dans le ffvpx embarqué |
+| `0007-remote-settings-opt-in-core` | Aucune requête Remote Settings (synchronisation, pièces jointes) tant que `core.remotesettings.enabled` est faux : Core n'utilise que les listes livrées ; la case Réglages > Listes de sécurité active la mise à jour depuis Mozilla |
 
 ## Multimédia
 
