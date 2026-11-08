@@ -4,10 +4,11 @@
 
 "use strict";
 
-// Fenêtre de réglages : moteurs de recherche, sandbox des processus de contenu, barre de titre,
-// historique, téléchargements, barre de marque-pages, extensions installées
-// depuis un fichier, réponse par défaut aux certificats invalides et mise à
-// jour des listes de sécurité.
+// Fenêtre de réglages : moteurs de recherche, sandbox des processus de
+// contenu, barre de titre, historique, téléchargements, barre de
+// marque-pages, menus clic droit, extensions installées depuis un fichier,
+// réponse par défaut aux certificats invalides et mise à jour des listes de
+// sécurité.
 
 const SANDBOX_PREF = "security.sandbox.content.level";
 
@@ -362,6 +363,24 @@ const gBookmarksToolbar = {
   },
 };
 
+// Menus clic droit : éditeur dans sa propre fenêtre (menu-editor.xhtml).
+const gContextMenuEditor = {
+  init() {
+    document.getElementById("contextmenu-edit").addEventListener("click", () => {
+      let win = Services.wm.getMostRecentWindow("core:menu-editor");
+      if (win) {
+        win.focus();
+        return;
+      }
+      window.openDialog(
+        "chrome://core/content/menu-editor.xhtml",
+        "",
+        "chrome,dialog=no,resizable,centerscreen"
+      );
+    });
+  },
+};
+
 window.addEventListener(
   "load",
   () => {
@@ -374,6 +393,7 @@ window.addEventListener(
     gRemoteSettings.init();
     gBookmarksToolbar.init();
     gExtensions.init();
+    gContextMenuEditor.init();
     document.getElementById("restart").addEventListener("click", () => {
       Services.startup.quit(
         Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart

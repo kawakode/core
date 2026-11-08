@@ -61,9 +61,9 @@ développement.
 Fait : onglets (dans la barre de titre) et leur déchargement, pages d'erreur
 réseau et de certificat, extensions d'AMO (onglets, fenêtres, boutons,
 favoris, historique), sandbox réglable, HEVC, build PGO + LTO Linux et
-Windows, releases automatiques.
+Windows, releases automatiques, menus clic droit personnalisables.
 
-À faire en priorité : menu contextuel, traduction française des pages
+À faire en priorité : traduction française des pages
 d'erreur, tests réels sous Windows et macOS, mesure du temps de démarrage.
 
 ## Design

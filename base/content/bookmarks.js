@@ -128,7 +128,12 @@ var gBookmarks = {
       return;
     }
     let browser = gTabs.selected.browser;
-    let uri = browser.currentURI;
+    await this.bookmarkURI(browser.currentURI, browser.contentTitle);
+  },
+
+  // Marque une adresse (page, lien du menu clic droit) si elle ne l'est pas,
+  // puis ouvre le panneau, sous l'étoile ou à défaut sous la barre d'adresse.
+  async bookmarkURI(uri, title) {
     if (!this.canBookmark(uri)) {
       return;
     }
@@ -138,12 +143,12 @@ var gBookmarks = {
       let guid = await PlacesTransactions.NewBookmark({
         parentGuid: CoreBookmarks.defaultFolder,
         url: uri,
-        title: browser.contentTitle || uri.spec,
+        title: title || uri.spec,
       }).transact();
       item = await PlacesUtils.bookmarks.fetch(guid);
       this.updateStar();
     }
-    this.openPanel(item, this.star, { created });
+    this.openPanel(item, this.star.hidden ? gToolbar.urlbar : this.star, { created });
   },
 
   // Changements dans Places (étoile, extension, gestionnaire, import) :

@@ -136,6 +136,20 @@ this.browserAction = class extends ExtensionAPIPersistent {
       }
     });
 
+    // Clic droit : éléments de l'extension (contexte « action » de l'API
+    // menus, ajoutés par ext-menus.js), puis Gérer et Supprimer
+    // (base/content/contextmenu.js).
+    button.addEventListener("contextmenu", event => {
+      event.preventDefault();
+      let menu = window.gContextMenus.prepareExtensionMenu(this.extension);
+      global.actionContextMenu?.({
+        menu,
+        extension: this.extension,
+        [this.extension.manifestVersion < 3 ? "onBrowserAction" : "onAction"]: true,
+      });
+      menu.openPopupAtScreen(event.screenX, event.screenY, true, event);
+    });
+
     document.getElementById("extension-buttons").append(button);
     this.buttons.set(window, button);
     this.updateWindow(window);
