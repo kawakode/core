@@ -311,6 +311,11 @@ body {
   align-items: center;
   gap: 6px;
   flex: 0 1 220px;
+  /* Même valeur en width : la largeur « naturelle » de la barre d'onglets
+   * (flex-basis auto) se calcule sur la largeur propre de chaque onglet, pas
+   * sur flex-basis. Sans elle, un titre long élargit la barre bien au-delà
+   * des onglets et le bouton + reste loin à droite. */
+  width: 220px;
   min-width: 76px;
   height: 28px;
   padding: 0 4px 0 10px;
