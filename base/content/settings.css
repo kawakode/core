@@ -73,6 +73,10 @@ h3 {
   margin: 6px 0 0;
 }
 
+.field[hidden] {
+  display: none;
+}
+
 .field > :is(select, input) {
   flex: 1;
   min-width: 0;
