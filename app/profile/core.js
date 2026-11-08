@@ -171,3 +171,9 @@ pref("browser.ipProtection.userEnabled", false);
 // "accept" (continuer sans la page) ou "refuse" (page sans bouton
 // Continuer). Appliquée par modules/CoreCertErrorChild.sys.mjs.
 pref("core.certerrors.default", "ask");
+
+// Menus clic droit (modules/CoreContextMenu.sys.mjs) : éléments dans l'ordre,
+// "-" pour un séparateur. Modifiables dans Réglages > Menus clic droit.
+// Chaque élément ne s'affiche que là où il a un sens (lien, image, champ…).
+pref("core.contextmenu.page", "exit-fullscreen,-,back,forward,reload,-,bookmark-page,-,link-tab,link-window,link-private,-,link-bookmark,link-save,link-copy,-,image-tab,image-copy,image-copy-url,image-save,-,media-play,media-mute,media-loop,media-controls,media-fullscreen,-,media-tab,media-copy-url,media-save,-,undo,redo,-,cut,copy,paste,paste-plain,delete,-,search,-,save-page,select-all,-,reveal-password,-,frame-tab,frame-reload,-,view-source,-,extensions");
+pref("core.contextmenu.tab", "new-tab,-,reload-tab,duplicate-tab,move-to-window,-,copy-tab-url,bookmark-tab,-,close-right,close-others,close-tab,-,extensions");

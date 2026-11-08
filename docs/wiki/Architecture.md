@@ -103,6 +103,16 @@ Gecko n'a plus d'API d'embarquement natif.
   fonctions que Firefox définit dans `browser/` (`gBrowser`,
   `openTrustedLinkIn`, `BrowserAddonUI`, `SidebarController`…). `main.js` en
   fournit des versions minimales.
+- **Menus clic droit** (`contextmenu.js`) : pages, onglets, boutons
+  d'extensions et champs de l'interface (barre d'adresse). L'analyse de ce
+  qui est sous le pointeur est celle de Firefox (acteur `ContextMenu`,
+  côté enfant `browser/actors/ContextMenuChild.sys.mjs` repris tel quel,
+  côté parent `modules/CoreContextMenuParent.sys.mjs`). Les menus des pages
+  et des onglets sont entièrement personnalisables : la liste des éléments
+  et leur ordre sont dans `core.contextmenu.page` et `core.contextmenu.tab`
+  (`modules/CoreContextMenu.sys.mjs`), modifiables dans Réglages > Menus clic
+  droit (`menu-editor.xhtml`). Chaque élément ne s'affiche que là où il a un
+  sens ; les séparateurs inutiles sont masqués.
 - **Réglages** (`settings.xhtml`) : sandbox, réponse par défaut aux
   certificats invalides, barre de titre du système ou de Core.
 
@@ -144,8 +154,12 @@ avertissement. Une extension non vérifiée proposée par un site est refusée
 (`ExtensionsUI`). Gecko l'autorise parce que la signature n'est imposée que
 dans les Firefox release/beta, pas en ESR (`xpinstall.signatures.required`).
 
-Limite actuelle : pas de menu contextuel, donc les entrées de menu des
-extensions ne s'affichent pas encore.
+Menus des extensions (API `menus` / `contextMenus`) : `parent/ext-menus.js`
+est celui de Firefox, adapté aux menus de Core. Les éléments des extensions
+apparaissent dans le menu des pages et celui des onglets à la place de
+« Éléments des extensions » (rien si l'utilisateur a retiré cet élément),
+dans le menu des marque-pages de la barre, et en tête du menu clic droit du
+bouton de l'extension (contexte `action`), suivis de Gérer et Supprimer.
 
 ## Correctifs de Gecko
 
