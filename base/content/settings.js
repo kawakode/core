@@ -4,10 +4,16 @@
 
 "use strict";
 
+<<<<<<< HEAD
 // Fenêtre de réglages : sandbox des processus de contenu, barre de titre,
 // historique, téléchargements, barre de marque-pages, menus clic droit,
 // extensions installées depuis un fichier et réponse par défaut aux
 // certificats invalides.
+=======
+// Fenêtre de réglages : moteurs de recherche, sandbox des processus de contenu, barre de titre,
+// historique, téléchargements, barre de marque-pages, extensions installées
+// depuis un fichier et réponse par défaut aux certificats invalides.
+>>>>>>> origin/main
 
 const SANDBOX_PREF = "security.sandbox.content.level";
 
@@ -203,6 +209,124 @@ const gExtensions = {
   },
 };
 
+// Moteurs de recherche de la barre d'adresse (modules/CoreSearch.sys.mjs).
+const gSearch = {
+  init() {
+    let { CoreSearch } = ChromeUtils.importESModule(
+      "resource:///modules/CoreSearch.sys.mjs"
+    );
+    this.search = CoreSearch;
+
+    let catalog = document.getElementById("search-catalog");
+    for (let entry of CoreSearch.CATALOG) {
+      catalog.append(new Option(entry.instance ? `${entry.name} (votre instance)` : entry.name, entry.id));
+    }
+    catalog.append(new Option("Autre moteur…", "custom"));
+    catalog.addEventListener("change", () => this.updateForm());
+
+    document.getElementById("search-default").addEventListener("change", event =>
+      CoreSearch.setDefault(event.target.value)
+    );
+    document.getElementById("search-add").addEventListener("click", () => this.add());
+    for (let id of ["search-instance", "search-name", "search-url", "search-keyword"]) {
+      document.getElementById(id).addEventListener("keydown", event => {
+        if (event.key == "Enter") {
+          this.add();
+        }
+      });
+    }
+
+    let update = () => this.render();
+    Services.prefs.addObserver("core.search.", update);
+    window.addEventListener("unload", () => Services.prefs.removeObserver("core.search.", update));
+    this.render();
+  },
+
+  render() {
+    let engines = this.search.engines;
+    let current = this.search.defaultEngine?.name ?? "";
+    let select = document.getElementById("search-default");
+    select.replaceChildren(new Option("Aucun : pas de recherche depuis la barre d'adresse", ""));
+    for (let engine of engines) {
+      select.append(new Option(`Rechercher avec ${engine.name}`, engine.name));
+    }
+    select.value = current;
+
+    let list = document.getElementById("search-engines");
+    list.replaceChildren();
+    for (let engine of engines) {
+      let item = document.createElement("li");
+      let text = document.createElement("span");
+      text.className = "engine-text";
+      let name = document.createElement("span");
+      name.textContent = engine.keyword ? `${engine.name} — ${engine.keyword}` : engine.name;
+      let url = document.createElement("span");
+      url.className = "engine-url";
+      url.textContent = engine.url;
+      url.title = engine.url;
+      text.append(name, url);
+      let remove = document.createElement("button");
+      remove.textContent = "Retirer";
+      remove.addEventListener("click", () => this.search.remove(engine.name));
+      item.append(text, remove);
+      list.append(item);
+    }
+    list.hidden = !engines.length;
+
+    // Les moteurs de la liste déjà ajoutés n'y sont plus proposés.
+    let names = new Set(engines.map(e => e.name));
+    let catalog = document.getElementById("search-catalog");
+    for (let option of catalog.options) {
+      let entry = this.search.CATALOG.find(e => e.id == option.value);
+      option.hidden = !!entry && !entry.instance && names.has(entry.name);
+    }
+    if (catalog.selectedOptions[0]?.hidden) {
+      catalog.value = [...catalog.options].find(o => !o.hidden).value;
+    }
+    this.updateForm();
+  },
+
+  updateForm() {
+    let id = document.getElementById("search-catalog").value;
+    let entry = this.search.CATALOG.find(e => e.id == id);
+    document.getElementById("search-instance-field").hidden = !entry?.instance;
+    document.getElementById("search-custom-fields").hidden = !!entry;
+    document.getElementById("search-keyword").placeholder = entry?.keyword
+      ? `Mot-clé (facultatif, ex. ${entry.keyword})`
+      : "Mot-clé (facultatif)";
+    document.getElementById("search-error").hidden = true;
+  },
+
+  add() {
+    let id = document.getElementById("search-catalog").value;
+    let entry = this.search.CATALOG.find(e => e.id == id);
+    let fields = ["search-instance", "search-name", "search-url", "search-keyword"].map(f =>
+      document.getElementById(f)
+    );
+    let [instance, name, url, keyword] = fields.map(f => f.value);
+    let error = document.getElementById("search-error");
+    try {
+      if (entry) {
+        url = this.search.catalogURL(entry, instance);
+        name = entry.name;
+        // Deux instances SearXNG : le nom de la seconde dit laquelle.
+        if (entry.instance && this.search.engines.some(e => e.name == name)) {
+          name = `${entry.name} (${new URL(url).host})`;
+        }
+      }
+      this.search.add({ name, url, keyword });
+    } catch (e) {
+      error.textContent = e.message;
+      error.hidden = false;
+      return;
+    }
+    for (let field of fields) {
+      field.value = "";
+    }
+    error.hidden = true;
+  },
+};
+
 // Barre de marque-pages (base/content/bookmarks.js suit la préférence).
 const gBookmarksToolbar = {
   PREF: "core.bookmarks.toolbar",
@@ -240,6 +364,7 @@ const gContextMenuEditor = {
 window.addEventListener(
   "load",
   () => {
+    gSearch.init();
     gSandbox.init();
     gTitlebar.init();
     gDownloads.init();

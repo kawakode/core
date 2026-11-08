@@ -410,7 +410,7 @@ var gContextMenus = {
       case "delete":
         return show(ctx.editable, { disabled: !this.commandEnabled(`cmd_${id}`) });
       case "paste-plain":
-        return show(context.isDesignMode, {
+        return show(context.isDesignMode && !context.onPassword, {
           disabled: !this.commandEnabled("cmd_pasteNoFormatting"),
         });
       case "copy":

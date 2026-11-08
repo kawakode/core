@@ -406,13 +406,44 @@ const gToolbar = {
     document.getElementById("newtab").addEventListener("click", () => gTabs.open(null));
     this.initMenu();
     this.urlbar.addEventListener("keydown", event => {
+<<<<<<< HEAD
       if (event.key == "Enter") {
         this.loadInput();
+=======
+      if (event.key == "Enter" && this.urlbar.value.trim()) {
+        let text = this.urlbar.value.trim();
+        let options = {
+          triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+        };
+        // Des mots : le moteur choisi dans les réglages (modules/CoreSearch).
+        // Sans moteur, tout est ouvert comme une adresse.
+        let search = CoreSearch.searchURLFor(text);
+        if (search) {
+          browser().loadURI(Services.io.newURI(search), options);
+        } else {
+          browser().fixupAndLoadURIString(text, options);
+        }
+        browser().focus();
+>>>>>>> origin/main
       } else if (event.key == "Escape") {
         this.update();
       }
     });
     this.urlbar.addEventListener("focus", () => this.urlbar.select());
+    this.updatePlaceholder();
+    Services.prefs.addObserver("core.search.", this);
+    window.addEventListener("unload", () => Services.prefs.removeObserver("core.search.", this));
+  },
+
+  observe() {
+    this.updatePlaceholder();
+  },
+
+  updatePlaceholder() {
+    let engine = CoreSearch.defaultEngine;
+    this.urlbar.placeholder = engine
+      ? `Rechercher avec ${engine.name} ou saisir une adresse`
+      : "Saisir une adresse";
   },
 
   // Menu ≡ : menu de toolkit, stylé par main.css.
@@ -809,6 +840,10 @@ window.addEventListener(
     );
     window.AppConstants = AppConstants;
     window.E10SUtils = E10SUtils;
+    var { CoreSearch } = ChromeUtils.importESModule(
+      "resource:///modules/CoreSearch.sys.mjs"
+    );
+    window.CoreSearch = CoreSearch;
 
     // Fenêtre privée : tokens.css passe l'accent en violet.
     var { PrivateBrowsingUtils } = ChromeUtils.importESModule(

@@ -6,7 +6,7 @@
 // Firefox (browser/actors/ContextMenuChild.sys.mjs, repris tel quel) : il
 // analyse ce qui est sous le pointeur (lien, image, vidéo, sélection, champ
 // de saisie, cadre) et envoie le message « contextmenu ». On le passe au
-// menu de la fenêtre (gContextMenu, base/content/contextmenu.js) avec ce
+// menu de la fenêtre (gContextMenus, base/content/contextmenu.js) avec ce
 // que seul le processus parent connaît (principal, adresse du document).
 //
 // Le nom de la classe est imposé par le nom de l'acteur (ContextMenu), que
@@ -31,10 +31,10 @@ export class ContextMenuParent extends JSWindowActorParent {
     // Un <browser> peut être dans un document imbriqué (page d'options d'une
     // extension dans about:addons) : on remonte à la fenêtre de Core.
     let win = browser.ownerDocument.defaultView;
-    if (!win.gContextMenu) {
+    if (!win.gContextMenus) {
       let topBrowser = win.docShell?.chromeEventHandler;
       win = topBrowser?.ownerDocument.defaultView;
-      if (!win?.gContextMenu) {
+      if (!win?.gContextMenus) {
         return;
       }
     }
@@ -59,7 +59,7 @@ export class ContextMenuParent extends JSWindowActorParent {
 
     let deserialize = info => info && lazy.E10SUtils.deserializeReferrerInfo(info);
 
-    win.gContextMenu.openForContent({
+    win.gContextMenus.openForContent({
       context,
       browser,
       actor: this,

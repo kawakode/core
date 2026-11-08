@@ -10,6 +10,7 @@ EXTRA_JS_MODULES += [
     "CoreContextMenu.sys.mjs",
     "CoreContextMenuParent.sys.mjs",
     "CoreErrorPageChild.sys.mjs",
+    "CoreSearch.sys.mjs",
     "CoreTabIconChild.sys.mjs",
     "CoreTabIconParent.sys.mjs",
     "ExtensionsUI.sys.mjs",
