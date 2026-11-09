@@ -206,6 +206,27 @@ de CPU dans une session mais rien sur disque, d'où +24 % après un redémarrage
 et un premier affichage retardé (Angular +75 %). La délazification et la
 compilation hors du thread principal sont déjà au plus agressif dans Gecko.
 
+## Pages qui réécrivent leurs styles : `:has()` (Mac, 2026-11-09)
+
+Sur https://store.google.com/fr/product/google_home_speaker?hl=fr, la page
+réécrit `style.cssText` en boucle après le chargement. Dans Gecko 153, chaque
+écriture relance une invalidation des sélecteurs `:has()` qui parcourt deux
+fois les descendants (dépendances ajoutées en double, bug 2052855). Clics et
+widgets attendent pendant tout ce temps. `patches/0008-stylo-invalidation-has-core`
+rétroporte les corrections de Firefox 155/156 (bugs 2052855 et 2058995).
+
+MacBook Pro, build local sans PGO ni LTO, profil neuf, temps CPU de l'onglet :
+
+| Build | Fil principal bloqué | CPU de l'onglet |
+|---|---|---|
+| Firefox ESR 153.6 officiel | ~53 s | 53,2 à 57,9 s |
+| Core sans le correctif | 46,2 s | 47,1 à 51,5 s |
+| **Core + 0008** | **~22 s** | **23,4 à 23,7 s** |
+| Firefox 159.0.1 | 25,3 s | 26,2 à 26,3 s |
+
+16 tests `:has()` (classe, attribut, enfant, `+`, `~`, `cssText`,
+`:not(:has())`) passent avec le correctif.
+
 ## À mesurer
 
 - Démarrage face à Firefox officiel, et Core empaqueté en omni.ja.

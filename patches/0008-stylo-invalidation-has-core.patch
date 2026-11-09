@@ -1,0 +1,49 @@
+Rétroportage de deux corrections de Stylo arrivées dans Firefox 155/156 :
+- Bug 2052855 (ae183ca98c) : ne plus ajouter deux fois les dépendances de sélecteurs relatifs (:has()),
+  ce qui doublait le parcours d'invalidation à chaque changement d'attribut.
+- Bug 2058995 (69eaab2ca3) : ne pas appeler process_sibling_invalidations sans invalidation de frère.
+À retirer à la montée vers une ESR qui les contient.
+
+diff --git a/servo/components/style/invalidation/element/relative_selector.rs b/servo/components/style/invalidation/element/relative_selector.rs
+index b7a426ec2d..f23ff89d9d 100644
+--- a/servo/components/style/invalidation/element/relative_selector.rs
++++ b/servo/components/style/invalidation/element/relative_selector.rs
+@@ -485,7 +485,6 @@ where
+             DependencyInvalidationKind::Normal(..) | DependencyInvalidationKind::Scope(..) => {
+                 self.dependencies
+                     .entry(element)
+-                    .and_modify(|v| v.push((host, dependency)))
+                     .or_default()
+                     .push((host, dependency));
+             },
+diff --git a/servo/components/style/invalidation/element/invalidator.rs b/servo/components/style/invalidation/element/invalidator.rs
+index 582b1b6ed7..e39d35c887 100644
+--- a/servo/components/style/invalidation/element/invalidator.rs
++++ b/servo/components/style/invalidation/element/invalidator.rs
+@@ -777,10 +777,12 @@ where
+             let mut child_invalidator =
+                 TreeStyleInvalidator::new(child, self.stack_limit_checker, self.processor);
+ 
+-            invalidated_child |= child_invalidator.process_sibling_invalidations(
+-                &mut invalidations_for_descendants,
+-                sibling_invalidations,
+-            );
++            if !sibling_invalidations.is_empty() {
++                invalidated_child |= child_invalidator.process_sibling_invalidations(
++                    &mut invalidations_for_descendants,
++                    sibling_invalidations,
++                );
++            }
+ 
+             invalidated_child |= child_invalidator.process_descendant_invalidations(
+                 invalidations,
+@@ -1022,6 +1024,9 @@ where
+     /// ones we got from the previous one.
+     ///
+     /// Returns whether invalidated the current element's style.
++    ///
++    /// Callers should skip this when `sibling_invalidations` is empty, as it
++    /// builds and drains a `SmallVec` to do nothing.
+     fn process_sibling_invalidations(
+         &mut self,
+         descendant_invalidations: &mut DescendantInvalidationLists<'b>,
