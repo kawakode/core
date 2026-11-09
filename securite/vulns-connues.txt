@@ -19,6 +19,7 @@ ringbuf RUSTSEC-2026-0293  # Double free / use-after-free in `Consumer::skip` an
 serde_with GHSA-7gcf-g7xr-8hxj  # serde_with: KeyValueMap serialization panics on empty sequence or map
 smallbitvec CVE-2026-44983  # smallbitvec: Integer overflow in safe API leads to heap buffer overflo
 tokio RUSTSEC-2026-0386  # `AsyncFd::new` and related constructors violate I/O safety : défaut de typage, pas de déclencheur depuis une page
+libsqlite3-sys CVE-2026-119375  # faille du SQLite embarqué (feature bundled, inutilisée : Gecko lie son SQLite de third_party) ; SQLite < 3.54 lit une page non initialisée si un -wal piégé est posé à côté de la base : demande un accès local au profil, à corriger par Mozilla
 
 # Gecko 153.6.0esr, crates d'outils (geckodriver, crashreporter, nimbus-fml), absentes de Core.
 quick-xml RUSTSEC-2026-0194  # Quadratic run time when checking a start tag for duplicate attribute n
