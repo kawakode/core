@@ -227,6 +227,45 @@ MacBook Pro, build local sans PGO ni LTO, profil neuf, temps CPU de l'onglet :
 16 tests `:has()` (classe, attribut, enfant, `+`, `~`, `cssText`,
 `:not(:has())`) passent avec le correctif.
 
+## Moteur JavaScript : optimisations de SpiderMonkey rétroportées (2026-11-13)
+
+**Tests du 12 et 13 novembre 2026**, sur Rycore (Ryzen 9 5900X, RX 9070 XT).
+Sur les quelque 1 900 commits de `js/src` arrivés entre Firefox 154 et 162, 55
+optimisations autonomes et sans régression signalée chez Mozilla ont été
+rétroportées sur Gecko 153.6, en 10 lots. Les 13 994 jit-tests passent.
+
+Shell JS (build optimisé, sans PGO), JetStream 3, 6 passes alternées :
+
+| Build | JetStream 3 |
+|---|---|
+| Gecko 153.6 | 146,9 (146,2 à 148,6) |
+| Les 10 lots | 149,0 (148,5 à 150,3) |
+| **Sans le lot « génération de code » (34 commits, gardé)** | **150,6 (148,7 à 151,1), +2,5 %** |
+
+Le lot « génération de code » (21 petits changements de l'allocateur de
+registres et de l'assembleur x86) coûtait environ 1 % : écarté. Microtests du
+shell : `{...obj}` ×3, appel d'une fonction liée (`bind`) ×11, champs de classe
+−25 %, rotations de bits −30 %.
+
+Navigateur, Core PGO + LTO des deux côtés, GPU (KWin hors écran), 12 passes
+alternées (`bench.py`) :
+
+| Mesure | Sans | Avec 0009 | Écart | p |
+|---|---|---|---|---|
+| JetStream 3 | 168,8 | 169,7 | +0,5 % | 0,033 |
+| Speedometer 3 | 26,6 | 26,6 | +0,2 % | 0,51, bruit |
+| raytrace, champs de classe publics | | | **+19,7 %** | 0,000 |
+| segmentation | | | +6,9 % | 0,000 |
+| hash-map | | | +7,7 % | 0,024 |
+| doxbee (promesses) | | | −6,4 % / −3,7 % | 0,057 / 0,038 |
+| bigint-noble-ed25519 | | | −4,6 % | 0,015 |
+
+Lecture : dans le navigateur, le gain d'ensemble (+0,5 %) est de l'ordre de
+l'écart entre deux builds PGO identiques (0,7 %) ; il reste des gains nets sur
+les motifs visés, surtout les champs de classe. Le PGO rattrape déjà une partie
+de ce que le shell sans PGO gagne. `patches/0009-spidermonkey-retroportages-core`
+contient les 34 commits gardés et la liste des bugs.
+
 ## À mesurer
 
 - Démarrage face à Firefox officiel, et Core empaqueté en omni.ja.
