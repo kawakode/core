@@ -232,39 +232,43 @@ MacBook Pro, build local sans PGO ni LTO, profil neuf, temps CPU de l'onglet :
 **Tests du 12 et 13 novembre 2026**, sur Rycore (Ryzen 9 5900X, RX 9070 XT).
 Sur les quelque 1 900 commits de `js/src` arrivés entre Firefox 154 et 162, 55
 optimisations autonomes et sans régression signalée chez Mozilla ont été
-rétroportées sur Gecko 153.6, en 10 lots. Les 13 994 jit-tests passent.
+rétroportées sur Gecko 153.6, en 10 lots, puis mesurées lot par lot. Seuls les
+4 lots à gain fort sont gardés dans `patches/0009-spidermonkey-retroportages-core`
+(~1 000 lignes de code) ; tous les jit-tests passent (13 983).
 
-Shell JS (build optimisé, sans PGO), JetStream 3, 6 passes alternées :
+| Lot (bugs) | Effet mesuré | Verdict |
+|---|---|---|
+| Champs de classe inlinés (2078425 et suivants) | raytrace champs publics +20 % (navigateur) | **Gardé** |
+| Fusibles d'index sur les prototypes (2084986) | hash-map +8 % (navigateur) | **Gardé** |
+| `{...obj}` / `Object.assign` (2054248, 2067720) | microtest ×3 | **Gardé** |
+| Fonctions liées inlinées (1824085) | microtest ×11 | **Gardé** |
+| Nombre vers texte, JSON.stringify, Map/Set, concaténation, rotations | 0 à 3 % chacun | Laissé |
+| Génération de code (21 changements x86 et allocateur) | JetStream −1 % dans le shell | Rejeté |
+
+Shell JS (build optimisé, sans PGO), JetStream 3, passes alternées :
 
 | Build | JetStream 3 |
 |---|---|
-| Gecko 153.6 | 146,9 (146,2 à 148,6) |
-| Les 10 lots | 149,0 (148,5 à 150,3) |
-| **Sans le lot « génération de code » (34 commits, gardé)** | **150,6 (148,7 à 151,1), +2,5 %** |
+| Gecko 153.6 | 146,9 à 148,0 |
+| Les 9 lots sans la génération de code | 150,6 (+2,5 %) |
+| **Les 4 lots gardés** | **149,2 (+0,8 %)** |
 
-Le lot « génération de code » (21 petits changements de l'allocateur de
-registres et de l'assembleur x86) coûtait environ 1 % : écarté. Microtests du
-shell : `{...obj}` ×3, appel d'une fonction liée (`bind`) ×11, champs de classe
-−25 %, rotations de bits −30 %.
-
-Navigateur, Core PGO + LTO des deux côtés, GPU (KWin hors écran), 12 passes
-alternées (`bench.py`) :
+Navigateur, Core PGO + LTO des deux côtés, GPU (KWin hors écran), 8 passes
+alternées (`bench.py`), avec les 4 lots gardés :
 
 | Mesure | Sans | Avec 0009 | Écart | p |
 |---|---|---|---|---|
-| JetStream 3 | 168,8 | 169,7 | +0,5 % | 0,033 |
-| Speedometer 3 | 26,6 | 26,6 | +0,2 % | 0,51, bruit |
-| raytrace, champs de classe publics | | | **+19,7 %** | 0,000 |
-| segmentation | | | +6,9 % | 0,000 |
-| hash-map | | | +7,7 % | 0,024 |
-| doxbee (promesses) | | | −6,4 % / −3,7 % | 0,057 / 0,038 |
-| bigint-noble-ed25519 | | | −4,6 % | 0,015 |
+| JetStream 3 | 168,0 | 169,2 | +0,8 % | 0,21 |
+| Speedometer 3 | 26,8 | 26,9 | +0,4 % | 0,56, bruit |
+| raytrace, champs de classe publics | | | **+20,5 %** | 0,001 |
+| esprima-next | | | +28,7 % | 0,027 |
+| hash-map | | | +8,1 % | 0,027 |
 
-Lecture : dans le navigateur, le gain d'ensemble (+0,5 %) est de l'ordre de
-l'écart entre deux builds PGO identiques (0,7 %) ; il reste des gains nets sur
-les motifs visés, surtout les champs de classe. Le PGO rattrape déjà une partie
-de ce que le shell sans PGO gagne. `patches/0009-spidermonkey-retroportages-core`
-contient les 34 commits gardés et la liste des bugs.
+Avec les 9 lots (12 passes), le navigateur gagnait autant (JetStream +0,5 %,
+Speedometer +0,2 %) pour trois fois plus de code. Le PGO rattrape une bonne part
+de ce que le shell sans PGO gagne : sur l'ensemble, le gain reste de l'ordre de
+l'écart entre deux builds PGO identiques (0,7 %) ; il est net sur les motifs
+visés.
 
 ## À mesurer
 
