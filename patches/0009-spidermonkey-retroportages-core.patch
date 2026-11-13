@@ -1,0 +1,2726 @@
+Rétroportage dans SpiderMonkey (Gecko ESR 153) des optimisations de Firefox 154
+à 162 qui ont un gain fort mesuré (les autres, à moins de 3 %, ont été laissées) :
+- Bugs 2054248 et 2067720 : copie d'objets ({...obj}, Object.assign) qui réutilise
+  la forme de l'objet source, CopyDataProperties en C++ ({...obj} ×3).
+- Bug 2084986 : fusibles « pas de propriété indexée » sur Array.prototype,
+  Object.prototype et String.prototype (trous de tableaux, push ; hash-map +8 %).
+- Bug 1824085 : appels de fonctions liées (bind) inlinés dans Ion (×11).
+- Bugs 2078425, 2085832, 2083869, 2083977, 2085001, 2085002 et 2087152 :
+  initialiseurs simples de champs de classe inlinés, activés par défaut (+20 %).
+Conflits résolus à la main dans Watchtower (bug 2030589 absent de la 153),
+NativeObject.cpp et SharedContext.h. Les jit-tests de ces bugs ne sont pas
+inclus (sauf script-source-extent.js, dont les attentes changent) ; tous les
+jit-tests de la 153 passent avec ce patch (13 983).
+Mesures : docs/wiki/Performances.md. À retirer à la montée vers une ESR qui les contient.
+
+diff --git a/js/src/builtin/Array-inl.h b/js/src/builtin/Array-inl.h
+index 8a587e5c30..7c3a5f6d11 100644
+--- a/js/src/builtin/Array-inl.h
++++ b/js/src/builtin/Array-inl.h
+@@ -7,9 +7,13 @@
+ 
+ #include "builtin/Array.h"
+ 
++#include "vm/ArrayObject.h"
++#include "vm/GlobalObject.h"
+ #include "vm/JSObject.h"
++#include "vm/Realm.h"
+ 
+ #include "vm/ArgumentsObject-inl.h"
++#include "vm/JSObject-inl.h"
+ #include "vm/ObjectOperations-inl.h"
+ 
+ namespace js {
+@@ -33,6 +37,27 @@ inline bool GetElement(JSContext* cx, HandleObject obj, uint32_t index,
+   return GetElement(cx, obj, obj, index, vp);
+ }
+ 
++/*
++ * Whether obj may have indexed properties anywhere besides its dense elements.
++ * This includes other indexed properties in its shape hierarchy, and indexed
++ * properties or elements along its prototype chain.
++ */
++inline bool ObjectMayHaveExtraIndexedProperties(JSObject* obj) {
++  // Inline fast path for arrays with Array.prototype as proto.
++  if (obj->is<ArrayObject>() && !obj->as<ArrayObject>().isIndexed()) {
++    JSObject* proto = obj->staticPrototype();
++    if (!proto) {
++      return false;
++    }
++    Realm* realm = obj->nonCCWRealm();
++    if (proto == obj->nonCCWGlobal().maybeGetPrototype(JSProto_Array) &&
++        realm->realmFuses.arrayProtoHasNoIndexedPropsFuse.intact()) {
++      return false;
++    }
++  }
++  return ObjectMayHaveExtraIndexedPropertiesSlow(obj);
++}
++
+ }  // namespace js
+ 
+ #endif  // builtin_Array_inl_h
+diff --git a/js/src/builtin/Array.cpp b/js/src/builtin/Array.cpp
+index c8336e5d28..3265194e2e 100644
+--- a/js/src/builtin/Array.cpp
++++ b/js/src/builtin/Array.cpp
+@@ -105,12 +105,7 @@ bool js::PrototypeMayHaveIndexedProperties(NativeObject* obj) {
+   } while (true);
+ }
+ 
+-/*
+- * Whether obj may have indexed properties anywhere besides its dense
+- * elements. This includes other indexed properties in its shape hierarchy, and
+- * indexed properties or elements along its prototype chain.
+- */
+-bool js::ObjectMayHaveExtraIndexedProperties(JSObject* obj) {
++bool js::ObjectMayHaveExtraIndexedPropertiesSlow(JSObject* obj) {
+   MOZ_ASSERT_IF(obj->hasDynamicPrototype(), !obj->is<NativeObject>());
+ 
+   if (ObjectMayHaveExtraIndexedOwnProperties(obj)) {
+@@ -5455,8 +5450,28 @@ static JSObject* CreateArrayConstructor(JSContext* cx, JSProtoKey key) {
+ 
+ static JSObject* CreateArrayPrototype(JSContext* cx, JSProtoKey key) {
+   MOZ_ASSERT(key == JSProto_Array);
++
+   RootedObject proto(cx, &cx->global()->getObjectPrototype());
+-  return NewArrayWithProto<0>(cx, 0, proto, TenuredObject);
++  Rooted<SharedShape*> shape(cx, GetArrayShapeWithProto(cx, proto));
++  if (!shape) {
++    return nullptr;
++  }
++
++  // Use an alloc kind without space for fixed elements so the element capacity
++  // starts at zero. This ensures that adding the first dense element goes
++  // through growElements, where we pop ArrayProtoHasNoIndexedPropsFuse.
++  constexpr gc::AllocKind allocKind = gc::GetGCArrayKind(0);
++  AutoSetNewObjectMetadata metadata(cx);
++  ArrayObject* arr =
++      ArrayObject::create(cx, allocKind, gc::Heap::Tenured, shape,
++                          /* length = */ 0, /* slotSpan = */ 0, metadata);
++  if (!arr) {
++    return nullptr;
++  }
++  MOZ_ASSERT(arr->getDenseCapacity() == 0);
++
++  probes::CreateObject(cx, arr);
++  return arr;
+ }
+ 
+ static bool array_proto_finish(JSContext* cx, JS::HandleObject ctor,
+diff --git a/js/src/builtin/Array.h b/js/src/builtin/Array.h
+index d40805b1d0..882c53b9bd 100644
+--- a/js/src/builtin/Array.h
++++ b/js/src/builtin/Array.h
+@@ -168,7 +168,8 @@ extern bool IsCrossRealmArrayConstructor(JSContext* cx, JSObject* obj,
+ 
+ extern bool ObjectMayHaveExtraIndexedOwnProperties(JSObject* obj);
+ 
+-extern bool ObjectMayHaveExtraIndexedProperties(JSObject* obj);
++inline bool ObjectMayHaveExtraIndexedProperties(JSObject* obj);
++extern bool ObjectMayHaveExtraIndexedPropertiesSlow(JSObject* obj);
+ 
+ extern bool PrototypeMayHaveIndexedProperties(NativeObject* obj);
+ 
+diff --git a/js/src/builtin/Object.cpp b/js/src/builtin/Object.cpp
+index 329efe6d38..7a2bad5b28 100644
+--- a/js/src/builtin/Object.cpp
++++ b/js/src/builtin/Object.cpp
+@@ -843,7 +843,7 @@ static bool CanAddNewPropertyExcludingProtoFast(PlainObject* obj) {
+ }
+ 
+ #ifdef DEBUG
+-void PlainObjectAssignCache::assertValid() const {
++void PlainObjectCopyPropsCache::assertValid() const {
+   MOZ_ASSERT(emptyToShape_);
+   MOZ_ASSERT(fromShape_);
+   MOZ_ASSERT(newToShape_);
+@@ -876,8 +876,7 @@ void PlainObjectAssignCache::assertValid() const {
+   if (fromPlain->getDenseInitializedLength() > 0 || fromPlain->isIndexed()) {
+     return true;
+   }
+-  MOZ_ASSERT(!fromPlain->getClass()->getNewEnumerate());
+-  MOZ_ASSERT(!fromPlain->getClass()->getEnumerate());
++  MOZ_ASSERT(!ClassCanHaveExtraEnumeratedProperties(fromPlain->getClass()));
+ 
+   // Empty |from| objects are common, so check for this first.
+   if (fromPlain->empty()) {
+@@ -892,20 +891,13 @@ void PlainObjectAssignCache::assertValid() const {
+ 
+   const bool toWasEmpty = toPlain->empty();
+   if (toWasEmpty) {
+-    const PlainObjectAssignCache& cache = cx->realm()->plainObjectAssignCache;
++    const PlainObjectCopyPropsCache& cache =
++        cx->realm()->plainObjectAssignCache;
+     SharedShape* newShape = cache.lookup(toPlain->shape(), fromPlain->shape());
+     if (newShape) {
+       *optimized = true;
+-      uint32_t oldSpan = 0;
+-      uint32_t newSpan = newShape->slotSpan();
+-      if (!toPlain->setShapeAndAddNewSlots(cx, newShape, oldSpan, newSpan)) {
+-        return false;
+-      }
+-      MOZ_ASSERT(fromPlain->slotSpan() == newSpan);
+-      for (size_t i = 0; i < newSpan; i++) {
+-        toPlain->initSlot(i, fromPlain->getSlot(i));
+-      }
+-      return true;
++      return CopyPropertiesWithNewShape(cx, toPlain, fromPlain, newShape,
++                                        newShape->slotSpan());
+     }
+   }
+ 
+@@ -913,10 +905,6 @@ void PlainObjectAssignCache::assertValid() const {
+ 
+   Rooted<PropertyInfoWithKeyVector> props(cx, PropertyInfoWithKeyVector(cx));
+ 
+-#ifdef DEBUG
+-  Rooted<Shape*> fromShape(cx, fromPlain->shape());
+-#endif
+-
+   bool hasPropsWithNonDefaultAttrs = false;
+   bool hasOnlyEnumerableProps = true;
+   for (ShapePropertyIter<NoGC> iter(fromPlain->shape()); !iter.done(); iter++) {
+@@ -956,47 +944,24 @@ void PlainObjectAssignCache::assertValid() const {
+   // enumerable/writable/configurable data properties, try to use its shape or
+   // property map.
+   if (toWasEmpty && !hasPropsWithNonDefaultAttrs) {
+-    CanReuseShape canReuse =
+-        toPlain->canReuseShapeForNewProperties(fromPlain->shape());
+-    if (canReuse != CanReuseShape::NoReuse) {
+-      SharedShape* newShape;
+-      if (canReuse == CanReuseShape::CanReuseShape) {
+-        newShape = fromPlain->sharedShape();
+-      } else {
+-        // Get a shape with fromPlain's PropMap and ObjectFlags (because we need
+-        // the HasEnumerable flag checked in canReuseShapeForNewProperties) and
+-        // the other fields (BaseShape, numFixedSlots) unchanged.
+-        MOZ_ASSERT(canReuse == CanReuseShape::CanReusePropMap);
+-        ObjectFlags objectFlags = fromPlain->sharedShape()->objectFlags();
+-        Rooted<SharedPropMap*> map(cx, fromPlain->sharedShape()->propMap());
+-        uint32_t mapLength = fromPlain->sharedShape()->propMapLength();
+-        BaseShape* base = toPlain->sharedShape()->base();
+-        uint32_t nfixed = toPlain->sharedShape()->numFixedSlots();
+-        newShape = SharedShape::getPropMapShape(cx, base, nfixed, map,
+-                                                mapLength, objectFlags);
+-        if (!newShape) {
+-          return false;
+-        }
+-      }
+-      uint32_t oldSpan = 0;
+-      uint32_t newSpan = props.length();
+-      if (!toPlain->setShapeAndAddNewSlots(cx, newShape, oldSpan, newSpan)) {
+-        return false;
+-      }
+-      MOZ_ASSERT(fromPlain->slotSpan() == newSpan);
+-      MOZ_ASSERT(toPlain->slotSpan() == newSpan);
+-      for (size_t i = 0; i < newSpan; i++) {
+-        toPlain->initSlot(i, fromPlain->getSlot(i));
+-      }
+-      PlainObjectAssignCache& cache = cx->realm()->plainObjectAssignCache;
+-      cache.fill(&origToShape->asShared(), fromPlain->sharedShape(), newShape);
++    bool copied;
++    if (!TryCopyPropertiesReusingShapeOrPropMap(cx, toPlain, fromPlain,
++                                                props.length(), &copied)) {
++      return false;
++    }
++    if (copied) {
++      PlainObjectCopyPropsCache& cache = cx->realm()->plainObjectAssignCache;
++      cache.fill(&origToShape->asShared(), fromPlain->sharedShape(),
++                 toPlain->sharedShape());
+       return true;
+     }
+   }
+ 
+   RootedValue propValue(cx);
+   RootedId nextKey(cx);
+-
++#ifdef DEBUG
++  Rooted<Shape*> fromShape(cx, fromPlain->shape());
++#endif
+   for (size_t i = props.length(); i > 0; i--) {
+     // Assert |from| still has the same properties.
+     MOZ_ASSERT(fromPlain->shape() == fromShape);
+@@ -1030,7 +995,7 @@ void PlainObjectAssignCache::assertValid() const {
+   // definition order and the slots may contain holes).
+   if (toWasEmpty && hasOnlyEnumerableProps && !fromPlain->inDictionaryMode() &&
+       !toPlain->inDictionaryMode()) {
+-    PlainObjectAssignCache& cache = cx->realm()->plainObjectAssignCache;
++    PlainObjectCopyPropsCache& cache = cx->realm()->plainObjectAssignCache;
+     cache.fill(&origToShape->asShared(), fromPlain->sharedShape(),
+                toPlain->sharedShape());
+   }
+@@ -1050,9 +1015,7 @@ static bool TryAssignNative(JSContext* cx, HandleObject to, HandleObject from,
+   // properties.
+   NativeObject* fromNative = &from->as<NativeObject>();
+   if (fromNative->getDenseInitializedLength() > 0 || fromNative->isIndexed() ||
+-      fromNative->is<TypedArrayObject>() ||
+-      fromNative->getClass()->getNewEnumerate() ||
+-      fromNative->getClass()->getEnumerate()) {
++      ClassCanHaveExtraEnumeratedProperties(fromNative->getClass())) {
+     return true;
+   }
+ 
+@@ -1155,6 +1118,129 @@ static bool AssignSlow(JSContext* cx, HandleObject to, HandleObject from) {
+   return true;
+ }
+ 
++// ES2027 Draft rev e28783d5fc9dc12b3de905961e2c71410b38a202
++// 7.3.25 CopyDataProperties ( target, source, excludedItems )
++bool js::CopyDataProperties(JSContext* cx, HandleObject target,
++                            HandleValue source, HandleObject excludedItems) {
++  // Step 1.
++  if (source.isNullOrUndefined()) {
++    return true;
++  }
++
++  // Step 2.
++  RootedObject from(cx, ToObject(cx, source));
++  if (!from) {
++    return false;
++  }
++
++  // Fast path for steps 3-4: everything can be copied in native code.
++  if (from->is<NativeObject>() && target->is<PlainObject>() &&
++      (!excludedItems || excludedItems->is<PlainObject>())) {
++    bool optimized;
++    if (!CopyDataPropertiesNative(
++            cx, target.as<PlainObject>(), from.as<NativeObject>(),
++            (excludedItems ? excludedItems.as<PlainObject>() : nullptr),
++            &optimized)) {
++      return false;
++    }
++    if (optimized) {
++      return true;
++    }
++  }
++
++  // Step 3.
++  RootedIdVector keys(cx);
++  if (!GetPropertyKeys(
++          cx, from, JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS, &keys)) {
++    return false;
++  }
++
++  // Step 4.
++  Rooted<NativeObject*> nativeTarget(cx);
++  // In some cases, |target| already has properties. For example when the
++  // literal had entries before the spread, as in `{a: 1, ...x}`. One of those
++  // can collide with a source key, and then the property has to be overwritten
++  // rather than added, so the no-hooks add needs a presence check first. A
++  // target that starts out empty cannot collide at all, because |keys| holds no
++  // duplicates and nothing reachable from the loop can add to |target|.
++  bool targetMayCollide = false;
++  if (target->is<PlainObject>() && target->as<PlainObject>().isExtensible()) {
++    nativeTarget = &target->as<PlainObject>();
++    targetMayCollide = !nativeTarget->empty();
++  }
++
++  RootedId nextKey(cx);
++  RootedValue propValue(cx);
++  for (size_t i = 0, len = keys.length(); i < len; i++) {
++    nextKey = keys[i];
++
++    // Step 4.b.
++    if (excludedItems) {
++      bool found;
++      if (!HasOwnProperty(cx, excludedItems, nextKey, &found)) {
++        return false;
++      }
++      if (found) {
++        continue;
++      }
++    }
++
++    // Steps 4.c.i-ii and 4.c.ii.1.
++    // Faster slow path using a single lookup on dense elements. This single
++    // lookup uses the fact that dense elements are always enumerable data
++    // properties.
++    if (from->is<NativeObject>() &&
++        !ClassCanHaveExtraEnumeratedProperties(from->getClass())) {
++      Handle<NativeObject*> nfrom = from.as<NativeObject>();
++      if (nextKey.isInt() && nfrom->containsDenseElement(nextKey.toInt())) {
++        propValue.set(nfrom->getDenseElement(nextKey.toInt()));
++      } else {
++        mozilla::Maybe<PropertyInfo> prop = nfrom->lookup(cx, nextKey);
++        if (prop.isNothing() || !prop->enumerable()) {
++          continue;
++        }
++        if (prop->isDataProperty()) {
++          propValue = nfrom->getSlot(prop->slot());
++        } else {
++          if (!NativeGetExistingProperty(cx, from, nfrom, nextKey, *prop,
++                                         &propValue)) {
++            return false;
++          }
++        }
++      }
++    } else {
++      // The above lookup is only valid when |from|'s class can't produce extra
++      // enumerated properties such as typed arrays and String objects.
++      bool enumerable;
++      if (!PropertyIsEnumerable(cx, from, nextKey, &enumerable)) {
++        return false;
++      }
++      if (!enumerable) {
++        continue;
++      }
++      if (!GetProperty(cx, from, from, nextKey, &propValue)) {
++        return false;
++      }
++    }
++
++    // Step 4.c.ii.2.
++    if (nativeTarget && !nextKey.isInt() &&
++        (!targetMayCollide || !nativeTarget->contains(cx, nextKey))) {
++      if (!AddDataPropertyToNativeObjectNoHooks(cx, nativeTarget, nextKey,
++                                                propValue)) {
++        return false;
++      }
++    } else {
++      if (!DefineDataProperty(cx, target, nextKey, propValue,
++                              JSPROP_ENUMERATE)) {
++        return false;
++      }
++    }
++  }
++
++  return true;
++}
++
+ JS_PUBLIC_API bool JS_AssignObject(JSContext* cx, JS::HandleObject target,
+                                    JS::HandleObject src) {
+   bool optimized = false;
+@@ -2297,6 +2383,10 @@ static JSObject* CreateObjectPrototype(JSContext* cx, JSProtoKey key) {
+              "should have been able to make a fresh Object.prototype's "
+              "[[Prototype]] immutable");
+ 
++  if (!JSObject::setHasRealmFuseProperty(cx, objectProto)) {
++    return nullptr;
++  }
++
+   return objectProto;
+ }
+ 
+diff --git a/js/src/builtin/Object.h b/js/src/builtin/Object.h
+index e3f5c6f67b..258e577060 100644
+--- a/js/src/builtin/Object.h
++++ b/js/src/builtin/Object.h
+@@ -50,6 +50,11 @@ JSString* ObjectClassToString(JSContext* cx, JSObject* obj);
+ [[nodiscard]] bool GetOwnPropertyDescriptorToArray(JSContext* cx, unsigned argc,
+                                                    JS::Value* vp);
+ 
++// Exposed for SelfHosting.cpp
++[[nodiscard]] bool CopyDataProperties(JSContext* cx, JS::HandleObject target,
++                                      JS::HandleValue source,
++                                      JS::HandleObject excludedItems);
++
+ /*
+  * Like IdToValue, but convert int jsids to strings. This is used when
+  * exposing a jsid to script for Object.getOwnProperty{Names,Symbols}
+diff --git a/js/src/builtin/String.cpp b/js/src/builtin/String.cpp
+index 81cc924965..5bdf9fc7f9 100644
+--- a/js/src/builtin/String.cpp
++++ b/js/src/builtin/String.cpp
+@@ -4337,6 +4337,9 @@ JSObject* StringObject::createPrototype(JSContext* cx, JSProtoKey key) {
+   if (!StringObject::init(cx, proto, empty)) {
+     return nullptr;
+   }
++  if (!JSObject::setHasRealmFuseProperty(cx, proto)) {
++    return nullptr;
++  }
+   return proto;
+ }
+ 
+diff --git a/js/src/builtin/Utilities.js b/js/src/builtin/Utilities.js
+index 6756a37189..2553c24601 100644
+--- a/js/src/builtin/Utilities.js
++++ b/js/src/builtin/Utilities.js
+@@ -129,86 +129,6 @@ function GetInternalError(...args) {
+ // To be used when a function is required but calling it shouldn't do anything.
+ function NullFunction() {}
+ 
+-// ES2019 draft rev 4c2df13f4194057f09b920ee88712e5a70b1a556
+-// 7.3.23 CopyDataProperties (target, source, excludedItems)
+-function CopyDataProperties(target, source, excludedItems) {
+-  // Step 1.
+-  assert(IsObject(target), "target is an object");
+-
+-  // Step 2.
+-  assert(IsObject(excludedItems), "excludedItems is an object");
+-
+-  // Steps 3 and 7.
+-  if (IsNullOrUndefined(source)) {
+-    return;
+-  }
+-
+-  // Step 4.
+-  var from = ToObject(source);
+-
+-  // Step 5.
+-  var keys = CopyDataPropertiesOrGetOwnKeys(target, from, excludedItems);
+-
+-  // Return if we copied all properties in native code.
+-  if (keys === null) {
+-    return;
+-  }
+-
+-  // Step 6.
+-  for (var index = 0; index < keys.length; index++) {
+-    var key = keys[index];
+-
+-    // We abbreviate this by calling propertyIsEnumerable which is faster
+-    // and returns false for not defined properties.
+-    if (
+-      !hasOwn(key, excludedItems) &&
+-      callFunction(std_Object_propertyIsEnumerable, from, key)
+-    ) {
+-      DefineDataProperty(target, key, from[key]);
+-    }
+-  }
+-
+-  // Step 7 (Return).
+-}
+-
+-// ES2019 draft rev 4c2df13f4194057f09b920ee88712e5a70b1a556
+-// 7.3.23 CopyDataProperties (target, source, excludedItems)
+-function CopyDataPropertiesUnfiltered(target, source) {
+-  // Step 1.
+-  assert(IsObject(target), "target is an object");
+-
+-  // Step 2 (Not applicable).
+-
+-  // Steps 3 and 7.
+-  if (IsNullOrUndefined(source)) {
+-    return;
+-  }
+-
+-  // Step 4.
+-  var from = ToObject(source);
+-
+-  // Step 5.
+-  var keys = CopyDataPropertiesOrGetOwnKeys(target, from, null);
+-
+-  // Return if we copied all properties in native code.
+-  if (keys === null) {
+-    return;
+-  }
+-
+-  // Step 6.
+-  for (var index = 0; index < keys.length; index++) {
+-    var key = keys[index];
+-
+-    // We abbreviate this by calling propertyIsEnumerable which is faster
+-    // and returns false for not defined properties.
+-    if (callFunction(std_Object_propertyIsEnumerable, from, key)) {
+-      DefineDataProperty(target, key, from[key]);
+-    }
+-  }
+-
+-  // Step 7 (Return).
+-}
+-
+ /*************************************** Testing functions ***************************************/
+ function outer() {
+   return function inner() {
+diff --git a/js/src/frontend/BytecodeEmitter.cpp b/js/src/frontend/BytecodeEmitter.cpp
+index 0cc545bf4a..4a5eb980b3 100644
+--- a/js/src/frontend/BytecodeEmitter.cpp
++++ b/js/src/frontend/BytecodeEmitter.cpp
+@@ -10932,6 +10932,34 @@ const MemberInitializers& BytecodeEmitter::findMemberInitializersForCall()
+   return *compilationState.scopeContext.memberInitializers;
+ }
+ 
++bool BytecodeEmitter::emitInlinedFieldValue(const InlinedField& field) {
++  switch (field.valueKind) {
++    case InlinedFieldValueKind::Number:
++      return emitNumberOp(field.initialValue);
++    case InlinedFieldValueKind::True:
++      return emit1(JSOp::True);
++    case InlinedFieldValueKind::False:
++      return emit1(JSOp::False);
++    case InlinedFieldValueKind::Null:
++      return emit1(JSOp::Null);
++    case InlinedFieldValueKind::Undefined:
++      return emit1(JSOp::Undefined);
++    case InlinedFieldValueKind::EmptyArray:
++      return emitUint32Operand(JSOp::NewArray, 0);
++    case InlinedFieldValueKind::EmptyObject: {
++      // Same as emitObject for a non-singleton `{}`: an empty-shape ObjLiteral.
++      ObjLiteralWriter writer;
++      writer.beginShape(JSOp::NewObject);
++      GCThingIndex index;
++      if (!addObjLiteralData(writer, &index)) {
++        return false;
++      }
++      return emitGCIndexOp(JSOp::NewObject, index);
++    }
++  }
++  MOZ_CRASH("unexpected InlinedFieldValueKind");
++}
++
+ bool BytecodeEmitter::emitInitializeInstanceMembers(
+     bool isDerivedClassConstructor) {
+   const MemberInitializers& memberInitializers =
+@@ -10973,6 +11001,55 @@ bool BytecodeEmitter::emitInitializeInstanceMembers(
+     }
+   }
+ 
++  if (memberInitializers.hasInlinedFields) {
++    MOZ_ASSERT(!isDerivedClassConstructor);
++    for (const InlinedField& field : sc->asFunctionBox()->inlinedFields()) {
++      if (!emitGetName(TaggedParserAtomIndex::WellKnown::dot_this_())) {
++        //              [stack] THIS
++        return false;
++      }
++      if (field.isPrivate) {
++        if (!emitGetPrivateName(field.name)) {
++          //            [stack] THIS KEY
++          return false;
++        }
++        // There is no private brand to check, this class has no private
++        // methods.
++        if (!emitCheckPrivateField(ThrowCondition::ThrowHas,
++                                   ThrowMsgKind::PrivateDoubleInit)) {
++          //            [stack] THIS KEY BOOL
++          return false;
++        }
++        if (!emit1(JSOp::Pop)) {
++          //            [stack] THIS KEY
++          return false;
++        }
++        if (!emitInlinedFieldValue(field)) {
++          //            [stack] THIS KEY VALUE
++          return false;
++        }
++        if (!emit1(JSOp::InitHiddenElem)) {
++          //            [stack] THIS
++          return false;
++        }
++      } else {
++        if (!emitInlinedFieldValue(field)) {
++          //            [stack] THIS VALUE
++          return false;
++        }
++        if (!emitAtomOp(JSOp::InitProp, field.name)) {
++          //            [stack] THIS
++          return false;
++        }
++      }
++      if (!emit1(JSOp::Pop)) {
++        //              [stack]
++        return false;
++      }
++    }
++    return true;
++  }
++
+   size_t numInitializers = memberInitializers.numMemberInitializers;
+   if (numInitializers > 0) {
+     if (!emitGetName(TaggedParserAtomIndex::WellKnown::dot_initializers_())) {
+@@ -12307,6 +12384,8 @@ bool BytecodeEmitter::emitClass(
+                TaggedParserAtomIndex::WellKnown::dot_initializers_());
+ #endif
+ 
++    ctor = &constructorScope->scopeBody()->as<ClassMethod>().method();
++
+     auto needsInitializer = [](ParseNode* propdef) {
+       return NeedsFieldInitializer(propdef, false) ||
+              NeedsAccessorInitializer(propdef, false);
+@@ -12326,7 +12405,8 @@ bool BytecodeEmitter::emitClass(
+       }
+ #endif
+       // Any class with field initializers will have a constructor
+-      if (!emitCreateMemberInitializers(ce, classMembers,
++      if (!ctor->funbox()->memberInitializers().hasInlinedFields &&
++          !emitCreateMemberInitializers(ce, classMembers,
+                                         FieldPlacement::Instance
+ #ifdef ENABLE_DECORATORS
+                                         ,
+@@ -12337,7 +12417,6 @@ bool BytecodeEmitter::emitClass(
+       }
+     }
+ 
+-    ctor = &constructorScope->scopeBody()->as<ClassMethod>().method();
+   } else {
+     // The |.initializers| binding is never emitted when in self-hosting mode.
+     MOZ_ASSERT(emitterMode == BytecodeEmitter::SelfHosting);
+diff --git a/js/src/frontend/BytecodeEmitter.h b/js/src/frontend/BytecodeEmitter.h
+index 2dbd6266ad..1a36698ee4 100644
+--- a/js/src/frontend/BytecodeEmitter.h
++++ b/js/src/frontend/BytecodeEmitter.h
+@@ -675,6 +675,7 @@ struct MOZ_STACK_CLASS BytecodeEmitter {
+ #endif
+   );
+   const MemberInitializers& findMemberInitializersForCall() const;
++  [[nodiscard]] bool emitInlinedFieldValue(const InlinedField& field);
+   [[nodiscard]] bool emitInitializeInstanceMembers(
+       bool isDerivedClassConstructor);
+   [[nodiscard]] bool emitInitializeStaticFields(ListNode* classMembers);
+diff --git a/js/src/frontend/Parser.cpp b/js/src/frontend/Parser.cpp
+index 4000e64bd5..b857dd3ed2 100644
+--- a/js/src/frontend/Parser.cpp
++++ b/js/src/frontend/Parser.cpp
+@@ -48,6 +48,7 @@
+ #include "js/ErrorReport.h"           // JSErrorBase
+ #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
+ #include "js/HashTable.h"
++#include "js/Prefs.h"        // JS::Prefs
+ #include "js/RegExpFlags.h"  // JS::RegExpFlags
+ #include "js/Stack.h"        // JS::NativeStackLimit
+ #include "util/DifferentialTesting.h"
+@@ -102,6 +103,49 @@ static bool StatementKindIsBraced(StatementKind kind) {
+          kind == StatementKind::Finally;
+ }
+ 
++static bool GetInlinableNumber(ParseNode* node, double* initialValue) {
++  bool negate = false;
++
++  if (node->isKind(ParseNodeKind::NegExpr)) {
++    node = node->as<UnaryNode>().kid();
++    negate = true;
++  }
++  if (!node->isKind(ParseNodeKind::NumberExpr)) {
++    return false;
++  }
++
++  double literalValue = node->as<NumericLiteral>().value();
++  *initialValue = negate ? -literalValue : literalValue;
++  return true;
++}
++
++static bool GetInlinableValue(ParseNode* node, InlinedFieldValueKind* kind,
++                              double* initialValue) {
++  switch (node->getKind()) {
++    case ParseNodeKind::TrueExpr:
++      *kind = InlinedFieldValueKind::True;
++      return true;
++    case ParseNodeKind::FalseExpr:
++      *kind = InlinedFieldValueKind::False;
++      return true;
++    case ParseNodeKind::NullExpr:
++      *kind = InlinedFieldValueKind::Null;
++      return true;
++    case ParseNodeKind::RawUndefinedExpr:
++      *kind = InlinedFieldValueKind::Undefined;
++      return true;
++    case ParseNodeKind::ArrayExpr:
++      *kind = InlinedFieldValueKind::EmptyArray;
++      return node->as<ListNode>().empty();
++    case ParseNodeKind::ObjectExpr:
++      *kind = InlinedFieldValueKind::EmptyObject;
++      return node->as<ListNode>().empty();
++    default:
++      *kind = InlinedFieldValueKind::Number;
++      return GetInlinableNumber(node, initialValue);
++  }
++}
++
+ template <class ParseHandler, typename Unit>
+ inline typename GeneralParser<ParseHandler, Unit>::FinalParser*
+ GeneralParser<ParseHandler, Unit>::asFinalParser() {
+@@ -8119,12 +8163,36 @@ bool GeneralParser<ParseHandler, Unit>::finishClassConstructor(
+   bool hasPrivateBrand = classInitializedMembers.hasPrivateBrand();
+   if (hasPrivateBrand || numMemberInitializers > 0) {
+     // Now that we have full set of initializers, update the constructor.
++    bool hasInstanceDecorators = false;
++#ifdef ENABLE_DECORATORS
++    hasInstanceDecorators = classInitializedMembers.hasInstanceDecorators;
++#endif
++    // The names are only valid in this compilation: skip constructors that may
++    // be compiled later.
++    mozilla::Span<const InlinedField> inlinedFields;
++    if (!hasPrivateBrand && !hasInstanceDecorators &&
++        hasHeritage == HasHeritage::No && ctorbox->emitBytecode &&
++        classInitializedMembers.hasOnlyInlinableFields &&
++        !classInitializedMembers.inlinableFields.empty()) {
++      const auto& fields = classInitializedMembers.inlinableFields;
++      MOZ_ASSERT(fields.length() == classInitializedMembers.instanceFields);
++      InlinedField* copy =
++          this->alloc_.template newArrayUninitialized<InlinedField>(
++              fields.length());
++      if (!copy) {
++        js::ReportOutOfMemory(fc_);
++        return false;
++      }
++      std::copy(fields.begin(), fields.end(), copy);
++      inlinedFields = mozilla::Span(copy, fields.length());
++    }
+     MemberInitializers initializers(
+         hasPrivateBrand,
+ #ifdef ENABLE_DECORATORS
+         classInitializedMembers.hasInstanceDecorators,
+ #endif
+-        numMemberInitializers);
++        numMemberInitializers, !inlinedFields.IsEmpty());
++    ctorbox->setInlinedFields(inlinedFields);
+     ctorbox->setMemberInitializers(initializers);
+ 
+     // Field initialization need access to `this`.
+@@ -8829,6 +8897,36 @@ GeneralParser<ParseHandler, Unit>::fieldInitializerOpt(
+     initializerExpr = MOZ_TRY(handler_.newRawUndefinedLiteral(propNamePos));
+   }
+ 
++  if constexpr (!std::is_same_v<ParseHandler, SyntaxParseHandler>) {
++    if (!isStatic && classInitializedMembers.hasOnlyInlinableFields &&
++        JS::Prefs::experimental_inline_simple_field_initializers()) {
++      // Computed names (`[expr] = 0;`) leave propAtom null. Index-like names
++      // need different bytecode than a plain InitProp.
++      uint32_t index;
++      bool isPrivate = propAtom && handler_.isPrivateName(propName);
++      bool isPlainName = propAtom && (isPrivate || !this->parserAtoms().isIndex(
++                                                       propAtom, &index));
++
++      InlinedFieldValueKind valueKind;
++      double literalValue = 0;
++      bool isInlinableValue =
++          GetInlinableValue(initializerExpr, &valueKind, &literalValue);
++      bool hasMaxInlinedFields =
++          classInitializedMembers.inlinableFields.length() >=
++          MemberInitializers::MaxInlinedFields;
++      if (isPlainName && isInlinableValue && !hasMaxInlinedFields) {
++        if (!classInitializedMembers.inlinableFields.append(
++                InlinedField{propAtom, isPrivate, valueKind, literalValue})) {
++          js::ReportOutOfMemory(fc_);
++          return errorResult();
++        }
++      } else {
++        classInitializedMembers.hasOnlyInlinableFields = false;
++        classInitializedMembers.inlinableFields.clearAndFree();
++      }
++    }
++  }
++
+   TokenPos wholeInitializerPos(propNamePos.begin, pos().end);
+ 
+   // Update the end position of the parse node.
+diff --git a/js/src/frontend/Parser.h b/js/src/frontend/Parser.h
+index 1cfe7370e0..097109a5f1 100644
+--- a/js/src/frontend/Parser.h
++++ b/js/src/frontend/Parser.h
+@@ -1300,6 +1300,12 @@ class MOZ_STACK_CLASS GeneralParser : public PerHandlerParser<ParseHandler> {
+     // The number of instance class private accessors.
+     size_t privateAccessors = 0;
+ 
++    // Checks if every instance field is a simple constant.
++    bool hasOnlyInlinableFields = true;
++    Vector<InlinedField, MemberInitializers::MaxInlinedFields,
++           SystemAllocPolicy>
++        inlinableFields;
++
+     bool hasPrivateBrand() const {
+       return privateMethods > 0 || privateAccessors > 0;
+     }
+diff --git a/js/src/frontend/SharedContext.h b/js/src/frontend/SharedContext.h
+index 9ccfa82ab3..56b9deb666 100644
+--- a/js/src/frontend/SharedContext.h
++++ b/js/src/frontend/SharedContext.h
+@@ -8,6 +8,7 @@
+ #include "mozilla/Assertions.h"
+ #include "mozilla/Attributes.h"
+ #include "mozilla/Maybe.h"
++#include "mozilla/Span.h"
+ 
+ #include <stddef.h>
+ #include <stdint.h>
+@@ -316,6 +317,24 @@ inline EvalSharedContext* SharedContext::asEvalContext() {
+ 
+ enum class HasHeritage { No, Yes };
+ 
++enum class InlinedFieldValueKind : uint8_t {
++  Number,
++  True,
++  False,
++  Null,
++  Undefined,
++  EmptyArray,
++  EmptyObject,
++};
++
++struct InlinedField {
++  TaggedParserAtomIndex name;
++  bool isPrivate;
++  InlinedFieldValueKind valueKind;
++  // Only meaningful when valueKind is Number.
++  double initialValue;
++};
++
+ class SuspendableContext : public SharedContext {
+  public:
+   SuspendableContext(FrontendContext* fc, Kind kind,
+@@ -386,6 +405,9 @@ class FunctionBox : public SuspendableContext {
+   // copy.
+   MemberInitializers memberInitializers_ = MemberInitializers::Invalid();
+ 
++  // See: MemberInitializers::hasInlinedFields
++  mozilla::Span<const InlinedField> inlinedFields_;
++
+  public:
+   // Back pointer used by asm.js for error messages.
+   FunctionNode* functionNode = nullptr;
+@@ -703,6 +725,13 @@ class FunctionBox : public SuspendableContext {
+     }
+   }
+ 
++  mozilla::Span<const InlinedField> inlinedFields() const {
++    return inlinedFields_;
++  }
++  void setInlinedFields(mozilla::Span<const InlinedField> fields) {
++    inlinedFields_ = fields;
++  }
++
+   ScriptIndex index() const { return funcDataIndex_; }
+ 
+   void finishScriptFlags();
+diff --git a/js/src/jit/BaselineCacheIRCompiler.cpp b/js/src/jit/BaselineCacheIRCompiler.cpp
+index 37b6fe0b46..6869e41bdd 100644
+--- a/js/src/jit/BaselineCacheIRCompiler.cpp
++++ b/js/src/jit/BaselineCacheIRCompiler.cpp
+@@ -3540,11 +3540,9 @@ bool BaselineCacheIRCompiler::emitCallScriptedProxyGetByValueResult(
+ }
+ #endif
+ 
+-bool BaselineCacheIRCompiler::emitCallBoundScriptedFunction(
++bool BaselineCacheIRCompiler::emitCallBoundScriptedFunctionShared(
+     ObjOperandId calleeId, ObjOperandId targetId, Int32OperandId argcId,
+-    CallFlags flags, uint32_t numBoundArgs) {
+-  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+-
++    CallFlags flags, uint32_t numBoundArgs, Maybe<uint32_t> icScriptOffset) {
+   AutoOutputRegister output(*this);
+   AutoScratchRegister scratch(allocator, masm);
+   AutoScratchRegisterMaybeOutput scratch2(allocator, masm, output);
+@@ -3553,6 +3551,8 @@ bool BaselineCacheIRCompiler::emitCallBoundScriptedFunction(
+   Register calleeReg = allocator.useRegister(masm, calleeId);
+   Register argcReg = allocator.useRegister(masm, argcId);
+ 
++  bool isInlined = icScriptOffset.isSome();
++
+   bool isConstructing = flags.isConstructing();
+   bool isSameRealm = flags.isSameRealm();
+ 
+@@ -3562,6 +3562,10 @@ bool BaselineCacheIRCompiler::emitCallBoundScriptedFunction(
+   AutoStubFrame stubFrame(*this);
+   stubFrame.enter(masm, scratch);
+ 
++  if (isInlined) {
++    stubFrame.pushInlinedICScript(masm, stubAddress(*icScriptOffset));
++  }
++
+   // Push all arguments, including |this|.
+   pushBoundFunctionArguments(argcReg, calleeReg, scratch, scratch2, flags,
+                              numBoundArgs, /* isJitCall = */ true);
+@@ -3584,12 +3588,17 @@ bool BaselineCacheIRCompiler::emitCallBoundScriptedFunction(
+ 
+   // Load the start of the target JitCode.
+   Register code = scratch2;
+-  masm.loadJitCodeRaw(calleeReg, code);
++  if (isInlined) {
++    masm.loadJitCodeRawNoIon(calleeReg, code, scratch);
++  } else {
++    masm.loadJitCodeRaw(calleeReg, code);
++  }
+ 
+   // Note that we use Push, not push, so that callJit will align the stack
+   // properly on ARM.
+   masm.PushCalleeToken(calleeReg, isConstructing);
+-  masm.PushFrameDescriptorForJitCall(FrameType::BaselineStub, argcReg, scratch);
++  masm.PushFrameDescriptorForJitCall(FrameType::BaselineStub, argcReg, scratch,
++                                     isInlined);
+ 
+   masm.callJit(code);
+ 
+@@ -3606,6 +3615,23 @@ bool BaselineCacheIRCompiler::emitCallBoundScriptedFunction(
+   return true;
+ }
+ 
++bool BaselineCacheIRCompiler::emitCallBoundScriptedFunction(
++    ObjOperandId calleeId, ObjOperandId targetId, Int32OperandId argcId,
++    CallFlags flags, uint32_t numBoundArgs) {
++  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
++  return emitCallBoundScriptedFunctionShared(calleeId, targetId, argcId, flags,
++                                             numBoundArgs, mozilla::Nothing());
++}
++
++bool BaselineCacheIRCompiler::emitCallInlinedBoundFunction(
++    ObjOperandId calleeId, ObjOperandId targetId, Int32OperandId argcId,
++    CallFlags flags, uint32_t icScriptOffset, uint32_t numBoundArgs) {
++  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
++  return emitCallBoundScriptedFunctionShared(calleeId, targetId, argcId, flags,
++                                             numBoundArgs,
++                                             mozilla::Some(icScriptOffset));
++}
++
+ bool BaselineCacheIRCompiler::emitNewArrayObjectResult(uint32_t arrayLength,
+                                                        uint32_t shapeOffset,
+                                                        uint32_t siteOffset) {
+diff --git a/js/src/jit/BaselineCacheIRCompiler.h b/js/src/jit/BaselineCacheIRCompiler.h
+index 197e3cca41..9d5b1d685e 100644
+--- a/js/src/jit/BaselineCacheIRCompiler.h
++++ b/js/src/jit/BaselineCacheIRCompiler.h
+@@ -119,6 +119,10 @@ class MOZ_RAII BaselineCacheIRCompiler : public CacheIRCompiler {
+       mozilla::Maybe<bool> ignoresReturnValue,
+       mozilla::Maybe<uint32_t> targetOffset,
+       ClearLocalAllocSite clearLocalAllocSite = ClearLocalAllocSite::No);
++  bool emitCallBoundScriptedFunctionShared(
++      ObjOperandId calleeId, ObjOperandId targetId, Int32OperandId argcId,
++      CallFlags flags, uint32_t numBoundArgs,
++      mozilla::Maybe<uint32_t> icScriptOffset);
+   void loadAllocSiteIntoContext(uint32_t siteOffset);
+ 
+   enum class StringCode { CodeUnit, CodePoint };
+diff --git a/js/src/jit/CacheIR.cpp b/js/src/jit/CacheIR.cpp
+index 3deb7517a4..fe95eda5d5 100644
+--- a/js/src/jit/CacheIR.cpp
++++ b/js/src/jit/CacheIR.cpp
+@@ -781,30 +781,47 @@ static void GeneratePrototypeGuards(CacheIRWriter& writer, JSObject* obj,
+   }
+ }
+ 
+-static void GeneratePrototypeHoleGuards(CacheIRWriter& writer,
+-                                        NativeObject* obj, ObjOperandId objId,
+-                                        bool alwaysGuardFirstProto) {
+-  if (alwaysGuardFirstProto) {
+-    GuardReceiverProto(writer, obj, objId);
+-  }
+-
++// Guard that the prototype chain of |obj| has no indexed properties. Prototypes
++// are shape guarded and, if |allowDenseElements| is false, guarded to have no
++// dense elements. If a prototype is covered by one of the no-indexed-properties
++// fuses, we guard on that fuse instead and stop.
++static void GuardProtoChainHasNoIndexedProps(JSContext* cx,
++                                             CacheIRWriter& writer,
++                                             NativeObject* obj,
++                                             ObjOperandId objId,
++                                             bool allowDenseElements) {
+   JSObject* pobj = obj->staticPrototype();
+   while (pobj) {
+-    ObjOperandId protoId = writer.loadObject(pobj);
+-
+-    // Make sure the shape matches, to ensure the proto is unchanged and to
+-    // avoid non-dense elements or anything else that is being checked by
+-    // CanAttachDenseElementHole.
+     MOZ_ASSERT(pobj->is<NativeObject>());
+-    writer.guardShape(protoId, pobj->shape());
+ 
+-    // Also make sure there are no dense elements.
+-    writer.guardNoDenseElements(protoId);
++    auto fuseIndex = MaybeGetHasNoIndexedPropsFuseIndex(cx->global(), pobj);
++    if (fuseIndex.isSome() &&
++        cx->realm()->realmFuses.getFuseByIndex(*fuseIndex)->intact()) {
++      writer.guardFuse(*fuseIndex);
++      return;
++    }
++
++    ObjOperandId protoId = writer.loadProtoObject(pobj, objId);
++    writer.guardShape(protoId, pobj->shape());
++    if (!allowDenseElements) {
++      writer.guardNoDenseElements(protoId);
++    }
+ 
+     pobj = pobj->staticPrototype();
+   }
+ }
+ 
++static void GeneratePrototypeHoleGuards(JSContext* cx, CacheIRWriter& writer,
++                                        NativeObject* obj, ObjOperandId objId,
++                                        bool alwaysGuardFirstProto) {
++  if (alwaysGuardFirstProto) {
++    GuardReceiverProto(writer, obj, objId);
++  }
++
++  GuardProtoChainHasNoIndexedProps(cx, writer, obj, objId,
++                                   /* allowDenseElements = */ false);
++}
++
+ // Similar to |TestMatchingReceiver|, but for the holder object (when it
+ // differs from the receiver). The holder may also be the expando of the
+ // receiver if it exists.
+@@ -2766,18 +2783,30 @@ AttachDecision GetPropIRGenerator::tryAttachStringChar(ValOperandId valId,
+     return AttachDecision::NoAction;
+   }
+ 
+-  // Can't attach for out-of-bounds access without guarding that indexed
+-  // properties aren't present along the prototype chain of |String.prototype|.
+-  if (attach == AttachStringChar::OutOfBounds) {
++  // We can optimize out-of-bounds reads if there are no indexed properties on
++  // String.prototype and idVal_ >= 0. Negative integers aren't array indices
++  // and aren't covered by StringProtoHasNoIndexedPropsFuse.
++  if (attach == AttachStringChar::OutOfBounds &&
++      (idVal_.toInt32() < 0 ||
++       !cx_->realm()->realmFuses.stringProtoHasNoIndexedPropsFuse.intact())) {
+     return AttachDecision::NoAction;
+   }
+ 
+   StringOperandId strId = writer.guardToString(valId);
+   Int32OperandId int32IndexId = EmitGuardToInt32Index(writer, idVal_, indexId);
+-  if (attach == AttachStringChar::Linearize) {
++
++  if (attach == AttachStringChar::OutOfBounds) {
++    writer.guardInt32IsNonNegative(int32IndexId);
++    writer.guardFuse(RealmFuses::FuseIndex::StringProtoHasNoIndexedPropsFuse);
++    // LoadStringAtResult with |handleOOB| requires a linear string.
+     strId = writer.linearizeForCharAccess(strId, int32IndexId);
++    writer.loadStringAtResult(strId, int32IndexId, /* handleOOB = */ true);
++  } else {
++    if (attach == AttachStringChar::Linearize) {
++      strId = writer.linearizeForCharAccess(strId, int32IndexId);
++    }
++    writer.loadStringCharResult(strId, int32IndexId, /* handleOOB = */ false);
+   }
+-  writer.loadStringCharResult(strId, int32IndexId, /* handleOOB = */ false);
+ 
+   trackAttached("GetProp.StringChar");
+   return AttachDecision::Attach;
+@@ -2914,7 +2943,7 @@ AttachDecision GetPropIRGenerator::tryAttachArgumentsObjectArgHole(
+     writer.guardClass(objId, GuardClassKind::UnmappedArguments);
+   }
+ 
+-  GeneratePrototypeHoleGuards(writer, args, objId,
++  GeneratePrototypeHoleGuards(cx_, writer, args, objId,
+                               /* alwaysGuardFirstProto = */ true);
+ 
+   writer.loadArgumentsObjectArgHoleResult(objId, indexId);
+@@ -2996,7 +3025,7 @@ AttachDecision GetPropIRGenerator::tryAttachDenseElementHole(
+ 
+   // Guard on the shape, to prevent non-dense elements from appearing.
+   TestMatchingNativeReceiver(writer, nobj, objId);
+-  GeneratePrototypeHoleGuards(writer, nobj, objId,
++  GeneratePrototypeHoleGuards(cx_, writer, nobj, objId,
+                               /* alwaysGuardFirstProto = */ false);
+   writer.loadDenseElementHoleResult(objId, indexId);
+ 
+@@ -3068,7 +3097,7 @@ AttachDecision GetPropIRGenerator::tryAttachSparseElement(
+   // Shape guard the prototype chain to avoid shadowing indexes from appearing.
+   // The helper function also ensures that the index does not appear within the
+   // dense element set of the prototypes.
+-  GeneratePrototypeHoleGuards(writer, nobj, objId,
++  GeneratePrototypeHoleGuards(cx_, writer, nobj, objId,
+                               /* alwaysGuardFirstProto = */ true);
+ 
+   // At this point, we are guaranteed that the indexed property will not
+@@ -3837,7 +3866,7 @@ AttachDecision HasPropIRGenerator::tryAttachDenseHole(HandleObject obj,
+   // Generate prototype guards if needed. This includes monitoring that
+   // properties were not added in the chain.
+   if (!hasOwn) {
+-    GeneratePrototypeHoleGuards(writer, nobj, objId,
++    GeneratePrototypeHoleGuards(cx_, writer, nobj, objId,
+                                 /* alwaysGuardFirstProto = */ false);
+   }
+ 
+@@ -3871,7 +3900,7 @@ AttachDecision HasPropIRGenerator::tryAttachSparse(HandleObject obj,
+   // Generate prototype guards if needed. This includes monitoring that
+   // properties were not added in the chain.
+   if (!hasOwn) {
+-    GeneratePrototypeHoleGuards(writer, nobj, objId,
++    GeneratePrototypeHoleGuards(cx_, writer, nobj, objId,
+                                 /* alwaysGuardFirstProto = */ true);
+   }
+ 
+@@ -3911,7 +3940,7 @@ AttachDecision HasPropIRGenerator::tryAttachArgumentsObjectArg(
+   }
+ 
+   if (!hasOwn) {
+-    GeneratePrototypeHoleGuards(writer, args, objId,
++    GeneratePrototypeHoleGuards(cx_, writer, args, objId,
+                                 /* alwaysGuardFirstProto = */ true);
+   }
+ 
+@@ -4809,6 +4838,24 @@ AttachDecision SetPropIRGenerator::tryAttachSetDenseElement(
+   return AttachDecision::Attach;
+ }
+ 
++// Guard that the prototype chain of |obj| doesn't have indexed properties that
++// would affect adding an element to |obj|.
++static void GuardProtoChainForAddElement(JSContext* cx, CacheIRWriter& writer,
++                                         NativeObject* obj,
++                                         ObjOperandId objId) {
++  // Note: unlike GeneratePrototypeHoleGuards, we don't need to guard that the
++  // prototype chain has no dense elements. Only two kinds of properties on a
++  // prototype object can prevent adding an element:
++  //
++  // - Accessor properties: never stored in dense elements.
++  // - Non-writable properties (can't be shadowed through SetElem): only stored
++  //   in dense elements when ObjectFlag::FrozenElements is set.
++  //
++  // See also CanAttachAddElement.
++  GuardProtoChainHasNoIndexedProps(cx, writer, obj, objId,
++                                   /* allowDenseElements = */ true);
++}
++
+ static bool CanAttachAddElement(NativeObject* obj, bool isInit,
+                                 AllowIndexedReceiver allowIndexedReceiver) {
+   MOZ_ASSERT(!obj->is<TypedArrayObject>());
+@@ -4932,9 +4979,9 @@ AttachDecision SetPropIRGenerator::tryAttachSetDenseElementHole(
+ 
+   TestMatchingNativeReceiver(writer, nobj, objId);
+ 
+-  // Also shape guard the proto chain, unless this is an InitElem.
++  // Also guard the proto chain, unless this is an InitElem.
+   if (IsPropertySetOp(op)) {
+-    ShapeGuardProtoChain(writer, nobj, objId);
++    GuardProtoChainForAddElement(cx_, writer, nobj, objId);
+   }
+ 
+   writer.storeDenseElementHole(objId, indexId, rhsId, isAdd);
+@@ -5023,7 +5070,7 @@ AttachDecision SetPropIRGenerator::tryAttachAddOrUpdateSparseElement(
+   // only be data properties, so our specialized Set handler is ok to bind
+   // to them.
+   if (IsPropertySetOp(op)) {
+-    ShapeGuardProtoChain(writer, nobj, objId);
++    GuardProtoChainForAddElement(cx_, writer, nobj, objId);
+   }
+ 
+   // Ensure that if we're adding an element to the object, the object's
+@@ -6656,8 +6703,8 @@ AttachDecision InlinableNativeIRGenerator::tryAttachArrayPush() {
+   // Guard that the shape matches.
+   TestMatchingNativeReceiver(writer, thisarray, thisObjId);
+ 
+-  // Guard proto chain shapes.
+-  ShapeGuardProtoChain(writer, thisarray, thisObjId);
++  // Guard the proto chain.
++  GuardProtoChainForAddElement(cx_, writer, thisarray, thisObjId);
+ 
+   // arr.push(x) is equivalent to arr[arr.length] = x for regular arrays.
+   ValOperandId argId = loadArgument(calleeId, ArgumentKind::Arg0);
+diff --git a/js/src/jit/CacheIROps.yaml b/js/src/jit/CacheIROps.yaml
+index 9f52dc4e5f..fe87df6f95 100644
+--- a/js/src/jit/CacheIROps.yaml
++++ b/js/src/jit/CacheIROps.yaml
+@@ -2154,6 +2154,20 @@
+     argcFixed: UInt32Imm
+ 
+ - name: CallBoundScriptedFunction
++  shared: false
++  transpile: true
++  cost_estimate: 3
++  inlining_candidate: true
++  args:
++    callee: ObjId
++    target: ObjId
++    argc: Int32Id
++    flags: CallFlagsImm
++    numBoundArgs: UInt32Imm
++
++# Like CallBoundScriptedFunction, but the target is trial-inlined so we have to
++# push the inlined ICScript and use the non-Ion jit entry.
++- name: CallInlinedBoundFunction
+   shared: false
+   transpile: true
+   cost_estimate: 3
+@@ -2162,6 +2176,7 @@
+     target: ObjId
+     argc: Int32Id
+     flags: CallFlagsImm
++    icScript: ICScriptField
+     numBoundArgs: UInt32Imm
+ 
+ - name: CallWasmFunction
+diff --git a/js/src/jit/CompilationDependencyTracker.h b/js/src/jit/CompilationDependencyTracker.h
+index c1e7addf30..db81223156 100644
+--- a/js/src/jit/CompilationDependencyTracker.h
++++ b/js/src/jit/CompilationDependencyTracker.h
+@@ -24,6 +24,9 @@ struct CompilationDependency : public TempObject {
+     ArraySpecies,
+     TypedArraySpecies,
+     RegExpPrototype,
++    ObjectProtoHasNoIndexedProps,
++    ArrayProtoHasNoIndexedProps,
++    StringProtoHasNoIndexedProps,
+     EmulatesUndefined,
+     ArrayExceedsInt32Length,
+     ObjectFuseProperty,
+diff --git a/js/src/jit/IonCacheIRCompiler.cpp b/js/src/jit/IonCacheIRCompiler.cpp
+index 427631bf00..d030fa86c4 100644
+--- a/js/src/jit/IonCacheIRCompiler.cpp
++++ b/js/src/jit/IonCacheIRCompiler.cpp
+@@ -2307,6 +2307,12 @@ bool IonCacheIRCompiler::emitCallClassHook(ObjOperandId calleeId,
+   MOZ_CRASH("Call ICs not used in ion");
+ }
+ 
++bool IonCacheIRCompiler::emitCallInlinedBoundFunction(
++    ObjOperandId calleeId, ObjOperandId targetId, Int32OperandId argcId,
++    CallFlags flags, uint32_t icScriptOffset, uint32_t numBoundArgs) {
++  MOZ_CRASH("Call ICs not used in ion");
++}
++
+ bool IonCacheIRCompiler::emitCallInlinedFunction(ObjOperandId calleeId,
+                                                  Int32OperandId argcId,
+                                                  uint32_t icScriptOffset,
+diff --git a/js/src/jit/LIROps.yaml b/js/src/jit/LIROps.yaml
+index 7788b29be7..8799a488be 100644
+--- a/js/src/jit/LIROps.yaml
++++ b/js/src/jit/LIROps.yaml
+@@ -205,6 +205,11 @@
+   num_temps: 1
+   mir_op: true
+ 
++- name: NewBoundFunction
++  result_type: WordSized
++  num_temps: 1
++  mir_op: true
++
+ - name: NewTypedArray
+   result_type: WordSized
+   call_instruction: true
+diff --git a/js/src/jit/MIR.cpp b/js/src/jit/MIR.cpp
+index 824d3347e3..6f0f9accd7 100644
+--- a/js/src/jit/MIR.cpp
++++ b/js/src/jit/MIR.cpp
+@@ -6437,6 +6437,8 @@ JSObject* MObjectState::templateObjectOf(MDefinition* obj) {
+     return obj->toNewCallObject()->templateObject();
+   } else if (obj->isNewIterator()) {
+     return obj->toNewIterator()->templateObject();
++  } else if (obj->isNewBoundFunction()) {
++    return obj->toNewBoundFunction()->templateObj();
+   }
+ 
+   MOZ_CRASH("unreachable");
+diff --git a/js/src/jit/MIR.h b/js/src/jit/MIR.h
+index 5cc7e68014..4075d49eec 100644
+--- a/js/src/jit/MIR.h
++++ b/js/src/jit/MIR.h
+@@ -2197,6 +2197,28 @@ class MNewIterator : public MUnaryInstruction, public NoTypePolicy::Data {
+   bool canRecoverOnBailout() const override { return true; }
+ };
+ 
++class MNewBoundFunction : public MUnaryInstruction, public NoTypePolicy::Data {
++  explicit MNewBoundFunction(MConstant* templateConst)
++      : MUnaryInstruction(classOpcode, templateConst) {
++    setResultType(MIRType::Object);
++    templateConst->setEmittedAtUses();
++  }
++
++ public:
++  INSTRUCTION_HEADER(NewBoundFunction)
++  TRIVIAL_NEW_WRAPPERS
++
++  JSObject* templateObj() const {
++    return &getOperand(0)->toConstant()->toObject();
++  }
++
++  AliasSet getAliasSet() const override { return AliasSet::None(); }
++
++  [[nodiscard]] bool writeRecoverData(
++      CompactBufferWriter& writer) const override;
++  bool canRecoverOnBailout() const override { return true; }
++};
++
+ // Represent the content of all slots of an object.  This instruction is not
+ // lowered and is not used to generate code.
+ class MObjectState : public MVariadicInstruction,
+diff --git a/js/src/jit/MIROps.yaml b/js/src/jit/MIROps.yaml
+index f2bfcde93a..0f784cd36f 100644
+--- a/js/src/jit/MIROps.yaml
++++ b/js/src/jit/MIROps.yaml
+@@ -420,12 +420,7 @@
+   gen_boilerplate: false
+ 
+ - name: NewBoundFunction
+-  arguments:
+-    templateObj: JSObject*
+-  result_type: Object
+-  alias_set: none
+-  generate_lir: true
+-  lir_temps: 1
++  gen_boilerplate: false
+ 
+ - name: BoundFunctionNumArgs
+   operands:
+diff --git a/js/src/jit/Recover.cpp b/js/src/jit/Recover.cpp
+index 640065b429..dc3cedc680 100644
+--- a/js/src/jit/Recover.cpp
++++ b/js/src/jit/Recover.cpp
+@@ -22,6 +22,7 @@
+ #include "js/ScalarType.h"
+ #include "util/DifferentialTesting.h"
+ #include "vm/BigIntType.h"
++#include "vm/BoundFunctionObject.h"
+ #include "vm/EqualityOperations.h"
+ #include "vm/Interpreter.h"
+ #include "vm/Iteration.h"
+@@ -2176,6 +2177,28 @@ bool RNewDateObject::recover(JSContext* cx, SnapshotIterator& iter) const {
+   return true;
+ }
+ 
++bool MNewBoundFunction::writeRecoverData(CompactBufferWriter& writer) const {
++  MOZ_ASSERT(canRecoverOnBailout());
++  writer.writeUnsigned(uint32_t(RInstruction::Recover_NewBoundFunction));
++  return true;
++}
++
++RNewBoundFunction::RNewBoundFunction(CompactBufferReader& reader) {}
++
++bool RNewBoundFunction::recover(JSContext* cx, SnapshotIterator& iter) const {
++  Rooted<BoundFunctionObject*> templateObj(
++      cx, &iter.readObject()->as<BoundFunctionObject>());
++
++  JSObject* resultObject =
++      BoundFunctionObject::createWithTemplate(cx, templateObj);
++  if (!resultObject) {
++    return false;
++  }
++
++  iter.storeInstructionResult(ObjectValue(*resultObject));
++  return true;
++}
++
+ bool MLambda::writeRecoverData(CompactBufferWriter& writer) const {
+   MOZ_ASSERT(canRecoverOnBailout());
+   writer.writeUnsigned(uint32_t(RInstruction::Recover_Lambda));
+diff --git a/js/src/jit/Recover.h b/js/src/jit/Recover.h
+index 6f2fd2584b..b1687ccaeb 100644
+--- a/js/src/jit/Recover.h
++++ b/js/src/jit/Recover.h
+@@ -137,6 +137,7 @@ namespace jit {
+   _(NewTypedArray)                \
+   _(NewArray)                     \
+   _(NewIterator)                  \
++  _(NewBoundFunction)             \
+   _(NewDateObject)                \
+   _(NewCallObject)                \
+   _(Lambda)                       \
+@@ -956,6 +957,14 @@ class RNewIterator final : public RInstruction {
+                              SnapshotIterator& iter) const override;
+ };
+ 
++class RNewBoundFunction final : public RInstruction {
++ public:
++  RINSTRUCTION_HEADER_NUM_OP_(NewBoundFunction, 1)
++
++  [[nodiscard]] bool recover(JSContext* cx,
++                             SnapshotIterator& iter) const override;
++};
++
+ class RNewDateObject final : public RInstruction {
+  public:
+   RINSTRUCTION_HEADER_NUM_OP_(NewDateObject, 1)
+diff --git a/js/src/jit/ScalarReplacement.cpp b/js/src/jit/ScalarReplacement.cpp
+index 8bcdbff5b8..6afe6f269e 100644
+--- a/js/src/jit/ScalarReplacement.cpp
++++ b/js/src/jit/ScalarReplacement.cpp
+@@ -13,6 +13,7 @@
+ #include "jit/WarpBuilderShared.h"
+ #include "js/Vector.h"
+ #include "vm/ArgumentsObject.h"
++#include "vm/BoundFunctionObject.h"
+ #include "vm/DateObject.h"
+ #include "vm/TypedArrayObject.h"
+ 
+@@ -111,7 +112,8 @@ bool EmulateStateOf<MemoryView>::run(MemoryView& view) {
+ 
+ static inline bool IsOptimizableObjectInstruction(MInstruction* ins) {
+   return ins->isNewObject() || ins->isNewPlainObject() ||
+-         ins->isNewCallObject() || ins->isNewIterator();
++         ins->isNewCallObject() || ins->isNewIterator() ||
++         ins->isNewBoundFunction();
+ }
+ 
+ static bool PhiOperandEqualTo(MDefinition* operand, MInstruction* newObject) {
+@@ -126,6 +128,14 @@ static bool PhiOperandEqualTo(MDefinition* operand, MInstruction* newObject) {
+     case MDefinition::Opcode::GuardToClass:
+       return PhiOperandEqualTo(operand->toGuardToClass()->input(), newObject);
+ 
++    case MDefinition::Opcode::GuardBoundFunctionIsConstructor:
++      return PhiOperandEqualTo(
++          operand->toGuardBoundFunctionIsConstructor()->object(), newObject);
++
++    case MDefinition::Opcode::GuardObjectIdentity:
++      return PhiOperandEqualTo(operand->toGuardObjectIdentity()->object(),
++                               newObject);
++
+     case MDefinition::Opcode::CheckIsObj:
+       return PhiOperandEqualTo(operand->toCheckIsObj()->input(), newObject);
+ 
+@@ -272,6 +282,7 @@ static bool IsObjectEscaped(MDefinition* ins, MInstruction* newObject,
+     switch (def->op()) {
+       case MDefinition::Opcode::StoreFixedSlot:
+       case MDefinition::Opcode::LoadFixedSlot:
++      case MDefinition::Opcode::LoadFixedSlotAndUnbox:
+         // Not escaped if it is the first argument.
+         if (def->indexOf(*i) == 0) {
+           break;
+@@ -376,7 +387,47 @@ static bool IsObjectEscaped(MDefinition* ins, MInstruction* newObject,
+ 
+       // Doesn't escape the object.
+       case MDefinition::Opcode::IsObject:
++      case MDefinition::Opcode::BoundFunctionNumArgs:
++        break;
++
++      case MDefinition::Opcode::GuardBoundFunctionIsConstructor: {
++        auto* guard = def->toGuardBoundFunctionIsConstructor();
++        if (!newObject->isNewBoundFunction()) {
++          JitSpewDef(JitSpew_Escape, "is not a bound function\n", guard);
++          return true;
++        }
++        JSObject* templateObj = MObjectState::templateObjectOf(newObject);
++        if (!templateObj->as<BoundFunctionObject>().isConstructor()) {
++          JitSpewDef(JitSpew_Escape, "has a non-matching isConstructor guard\n",
++                     guard);
++          return true;
++        }
++        if (IsObjectEscaped(def->toInstruction(), newObject, shape)) {
++          JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
++          return true;
++        }
++        break;
++      }
++
++      case MDefinition::Opcode::GuardObjectIdentity: {
++        // tryAttachBoundFunction guards newTarget == callee for constructing
++        // calls. Both operands are the object we're replacing, so the guard is
++        // trivially true and doesn't escape it. Note that either operand can be
++        // a chain of guards on that object rather than the object itself.
++        auto* guard = def->toGuardObjectIdentity();
++        if (guard->bailOnEquality() ||
++            !PhiOperandEqualTo(guard->object(), newObject) ||
++            !PhiOperandEqualTo(guard->expected(), newObject)) {
++          JitSpewDef(JitSpew_Escape, "has a non-trivial identity guard\n",
++                     guard);
++          return true;
++        }
++        if (IsObjectEscaped(def->toInstruction(), newObject, shape)) {
++          JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
++          return true;
++        }
+         break;
++      }
+ 
+       // This instruction is a no-op used to verify that scalar replacement
+       // is working as expected in jit-test.
+@@ -446,6 +497,11 @@ class ObjectMemoryView : public MDefinitionVisitorDefaultNoop {
+   void visitObjectState(MObjectState* ins);
+   void visitStoreFixedSlot(MStoreFixedSlot* ins);
+   void visitLoadFixedSlot(MLoadFixedSlot* ins);
++  void visitLoadFixedSlotAndUnbox(MLoadFixedSlotAndUnbox* ins);
++  void visitBoundFunctionNumArgs(MBoundFunctionNumArgs* ins);
++  void visitGuardBoundFunctionIsConstructor(
++      MGuardBoundFunctionIsConstructor* ins);
++  void visitGuardObjectIdentity(MGuardObjectIdentity* ins);
+   void visitPostWriteBarrier(MPostWriteBarrier* ins);
+   void visitStoreDynamicSlot(MStoreDynamicSlot* ins);
+   void visitLoadDynamicSlot(MLoadDynamicSlot* ins);
+@@ -686,6 +742,72 @@ void ObjectMemoryView::visitLoadFixedSlot(MLoadFixedSlot* ins) {
+   ins->block()->discard(ins);
+ }
+ 
++void ObjectMemoryView::visitLoadFixedSlotAndUnbox(MLoadFixedSlotAndUnbox* ins) {
++  // Skip loads made on other objects.
++  if (ins->object() != obj_) {
++    return;
++  }
++
++  MOZ_ASSERT(state_->hasFixedSlot(ins->slot()));
++  MDefinition* val = state_->getFixedSlot(ins->slot());
++  if (val->type() == ins->type()) {
++    ins->replaceAllUsesWith(val);
++  } else {
++    auto* unbox = MUnbox::New(alloc_, val, ins->type(), ins->mode());
++    ins->block()->insertBefore(ins, unbox);
++    ins->replaceAllUsesWith(unbox);
++  }
++
++  // Remove original instruction.
++  ins->block()->discard(ins);
++}
++
++void ObjectMemoryView::visitBoundFunctionNumArgs(MBoundFunctionNumArgs* ins) {
++  // Skip instructions on other objects.
++  if (ins->object() != obj_) {
++    return;
++  }
++
++  JSObject* templateObj = MObjectState::templateObjectOf(obj_);
++  size_t numBoundArgs = templateObj->as<BoundFunctionObject>().numBoundArgs();
++
++  auto* num = MConstant::NewInt32(alloc_, int32_t(numBoundArgs));
++  ins->block()->insertBefore(ins, num);
++  ins->replaceAllUsesWith(num);
++
++  // Remove original instruction.
++  ins->block()->discard(ins);
++}
++
++void ObjectMemoryView::visitGuardBoundFunctionIsConstructor(
++    MGuardBoundFunctionIsConstructor* ins) {
++  // Skip guards on other objects.
++  if (ins->object() != obj_) {
++    return;
++  }
++
++  // IsObjectEscaped checked the template object is a constructor.
++  ins->replaceAllUsesWith(obj_);
++
++  // Remove original instruction.
++  ins->block()->discard(ins);
++}
++
++void ObjectMemoryView::visitGuardObjectIdentity(MGuardObjectIdentity* ins) {
++  // Skip guards on other objects.
++  if (ins->object() != obj_) {
++    return;
++  }
++
++  // IsObjectEscaped checked both operands are this object.
++  MOZ_ASSERT(ins->expected() == obj_);
++  MOZ_ASSERT(!ins->bailOnEquality());
++  ins->replaceAllUsesWith(obj_);
++
++  // Remove original instruction.
++  ins->block()->discard(ins);
++}
++
+ void ObjectMemoryView::visitPostWriteBarrier(MPostWriteBarrier* ins) {
+   // Skip loads made on other objects.
+   if (ins->object() != obj_) {
+diff --git a/js/src/jit/TrialInlining.cpp b/js/src/jit/TrialInlining.cpp
+index 5c0f90a842..9cba63f50a 100644
+--- a/js/src/jit/TrialInlining.cpp
++++ b/js/src/jit/TrialInlining.cpp
+@@ -217,6 +217,14 @@ Maybe<InlinableOpData> FindInlinableOpData(ICCacheIRStub* stub,
+   return mozilla::Nothing();
+ }
+ 
++// We currently only inline bound functions with no bound arguments or
++// new.target.
++// TODO (bug 2066335): Support bound functions with up to MaxInlineBoundArgs
++// arguments.
++static bool CanInlineBoundCall(uint32_t numBoundArgs, CallFlags flags) {
++  return numBoundArgs == 0 && !flags.isConstructing();
++}
++
+ Maybe<InlinableCallData> FindInlinableCallData(ICCacheIRStub* stub) {
+   Maybe<InlinableCallData> data;
+ 
+@@ -273,6 +281,7 @@ Maybe<InlinableCallData> FindInlinableCallData(ICCacheIRStub* stub) {
+           MOZ_ASSERT(data.isNothing());
+           data.emplace();
+           data->endOfSharedPrefix = opStart;
++          data->calleeOperand = args.calleeId;
+         }
+         break;
+       }
+@@ -286,6 +295,46 @@ Maybe<InlinableCallData> FindInlinableCallData(ICCacheIRStub* stub) {
+           MOZ_ASSERT(data.isNothing());
+           data.emplace();
+           data->endOfSharedPrefix = opStart;
++          data->calleeOperand = args.calleeId;
++          uintptr_t rawICScript =
++              stubInfo->getStubRawWord(stubData, args.icScriptOffset);
++          data->icScript = reinterpret_cast<ICScript*>(rawICScript);
++        }
++        break;
++      }
++      case CacheOp::CallBoundScriptedFunction: {
++        auto args = reader.argsForCallBoundScriptedFunction();
++        flags = args.flags;
++
++        if (args.targetId == calleeGuardOperand) {
++          MOZ_ASSERT(args.argcId.id() == 0);
++          MOZ_ASSERT(data.isNothing());
++          if (!CanInlineBoundCall(args.numBoundArgs, args.flags)) {
++            return mozilla::Nothing();
++          }
++          data.emplace();
++          data->endOfSharedPrefix = opStart;
++          data->isBound = true;
++          data->calleeOperand = args.calleeId;
++          data->boundTargetOperand = args.targetId;
++          data->numBoundArgs = args.numBoundArgs;
++        }
++        break;
++      }
++      case CacheOp::CallInlinedBoundFunction: {
++        auto args = reader.argsForCallInlinedBoundFunction();
++        flags = args.flags;
++
++        if (args.targetId == calleeGuardOperand) {
++          MOZ_ASSERT(args.argcId.id() == 0);
++          MOZ_ASSERT(data.isNothing());
++          MOZ_ASSERT(CanInlineBoundCall(args.numBoundArgs, args.flags));
++          data.emplace();
++          data->endOfSharedPrefix = opStart;
++          data->isBound = true;
++          data->calleeOperand = args.calleeId;
++          data->boundTargetOperand = args.targetId;
++          data->numBoundArgs = args.numBoundArgs;
+           uintptr_t rawICScript =
+               stubInfo->getStubRawWord(stubData, args.icScriptOffset);
+           data->icScript = reinterpret_cast<ICScript*>(rawICScript);
+@@ -309,7 +358,6 @@ Maybe<InlinableCallData> FindInlinableCallData(ICCacheIRStub* stub) {
+         flags.getArgFormat() != CallFlags::FunCall) {
+       return mozilla::Nothing();
+     }
+-    data->calleeOperand = calleeGuardOperand;
+     data->callFlags = flags;
+     data->target = targetScript;
+   }
+@@ -853,9 +901,15 @@ bool TrialInliner::maybeInlineCall(ICEntry& entry, ICFallbackStub* fallback,
+   Int32OperandId argcId(writer.setInputOperandId(0));
+   cloneSharedPrefix(stub, data->endOfSharedPrefix, writer);
+ 
+-  writer.callInlinedFunction(data->calleeOperand, argcId, newICScript,
+-                             data->callFlags,
+-                             ClampFixedArgc(loc.getCallArgc()));
++  if (data->isBound) {
++    writer.callInlinedBoundFunction(
++        data->calleeOperand, data->boundTargetOperand, argcId, data->callFlags,
++        newICScript, data->numBoundArgs);
++  } else {
++    writer.callInlinedFunction(data->calleeOperand, argcId, newICScript,
++                               data->callFlags,
++                               ClampFixedArgc(loc.getCallArgc()));
++  }
+ 
+   return replaceICStub(entry, fallback, writer, CacheKind::Call);
+ }
+diff --git a/js/src/jit/TrialInlining.h b/js/src/jit/TrialInlining.h
+index 54917dfb35..f8a0158af2 100644
+--- a/js/src/jit/TrialInlining.h
++++ b/js/src/jit/TrialInlining.h
+@@ -118,6 +118,13 @@ class InlinableCallData : public InlinableOpData {
+  public:
+   ObjOperandId calleeOperand;
+   CallFlags callFlags;
++
++  // For bound function calls, |calleeOperand| is the bound function and
++  // |boundTargetOperand| is the target we're inlining. numBoundArgs is
++  // currently always 0: see updateCallInfoForInlinedBoundCall.
++  bool isBound = false;
++  ObjOperandId boundTargetOperand;
++  uint32_t numBoundArgs = 0;
+ };
+ 
+ class InlinableGetterData : public InlinableOpData {
+diff --git a/js/src/jit/WarpBuilder.cpp b/js/src/jit/WarpBuilder.cpp
+index 06c177a637..a8230035cb 100644
+--- a/js/src/jit/WarpBuilder.cpp
++++ b/js/src/jit/WarpBuilder.cpp
+@@ -1904,8 +1904,10 @@ bool WarpBuilder::buildCallOp(BytecodeLocation loc) {
+ 
+   if (const auto* inliningSnapshot = getOpSnapshot<WarpInlinedCall>(loc)) {
+     // Transpile the CacheIR to generate the correct guards before
+-    // inlining.  In this case, CacheOp::CallInlinedFunction updates
+-    // the CallInfo, but does not generate a call.
++    // inlining.  In this case, the call op (CallInlinedFunction,
++    // CallInlinedBoundFunction, or for monomorphic inlining the un-replaced
++    // CallScriptedFunction/CallBoundScriptedFunction) updates the CallInfo,
++    // but does not generate a call.
+     callInfo.markAsInlined();
+     if (!transpileCall(loc, inliningSnapshot->cacheIRSnapshot(), &callInfo)) {
+       return false;
+diff --git a/js/src/jit/WarpCacheIRTranspiler.cpp b/js/src/jit/WarpCacheIRTranspiler.cpp
+index e68a4ad6aa..bf16a11fa3 100644
+--- a/js/src/jit/WarpCacheIRTranspiler.cpp
++++ b/js/src/jit/WarpCacheIRTranspiler.cpp
+@@ -22,6 +22,7 @@
+ #include "jit/WarpBuilderShared.h"
+ #include "jit/WarpSnapshot.h"
+ #include "js/ScalarType.h"  // js::Scalar::Type
++#include "vm/BoundFunctionObject.h"
+ #include "vm/BytecodeLocation.h"
+ #include "vm/ObjectFuse.h"
+ #include "vm/TypeofEqOperand.h"  // TypeofEqOperand
+@@ -287,6 +288,10 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
+   enum class CallKind { Native, DOM, Scripted };
+ 
+   [[nodiscard]] bool updateCallInfo(MDefinition* callee, CallFlags flags);
++  [[nodiscard]] bool updateCallInfoForInlinedBoundCall(MDefinition* callee,
++                                                       MDefinition* target,
++                                                       CallFlags flags,
++                                                       uint32_t numBoundArgs);
+ 
+   [[nodiscard]] bool emitCallFunction(
+       ObjOperandId calleeId, Int32OperandId argcId,
+@@ -479,6 +484,9 @@ bool WarpCacheIRTranspiler::emitGuardFuse(RealmFuses::FuseIndex fuseIndex) {
+     case RealmFuses::FuseIndex::OptimizeArraySpeciesFuse:
+     case RealmFuses::FuseIndex::OptimizeTypedArraySpeciesFuse:
+     case RealmFuses::FuseIndex::OptimizeRegExpPrototypeFuse:
++    case RealmFuses::FuseIndex::ObjectProtoHasNoIndexedPropsFuse:
++    case RealmFuses::FuseIndex::ArrayProtoHasNoIndexedPropsFuse:
++    case RealmFuses::FuseIndex::StringProtoHasNoIndexedPropsFuse:
+       // This is a no-op because WarpOracle has added a compilation dependency.
+       MOZ_ASSERT(RealmFuses::isInvalidatingFuse(fuseIndex));
+       return true;
+@@ -6671,6 +6679,38 @@ bool WarpCacheIRTranspiler::emitCallClassHook(ObjOperandId calleeId,
+   return resumeAfter(call);
+ }
+ 
++// Update the CallInfo for a bound function call that will be inlined by
++// WarpBuilder::buildInlinedCall instead of becoming an MCall. With no bound
++// arguments the outer frame is the same shape as a direct call to the target,
++// so we can use ResumeMode::InlinedStandardCall.
++bool WarpCacheIRTranspiler::updateCallInfoForInlinedBoundCall(
++    MDefinition* callee, MDefinition* target, CallFlags flags,
++    uint32_t numBoundArgs) {
++  MOZ_ASSERT(callInfo_->isInlined());
++  MOZ_ASSERT(numBoundArgs == 0);
++  MOZ_ASSERT(!flags.isConstructing());
++  MOZ_ASSERT(callInfo_->argFormat() == CallInfo::ArgFormat::Standard);
++
++  callInfo_->setCallee(target);
++  updateArgumentsFromOperands();
++
++  auto* thisv = MLoadFixedSlot::New(alloc(), callee,
++                                    BoundFunctionObject::boundThisSlot());
++  add(thisv);
++  callInfo_->thisArg()->setImplicitlyUsedUnchecked();
++  callInfo_->setThis(thisv);
++
++  callInfo_->setInliningResumeMode(ResumeMode::InlinedStandardCall);
++  return true;
++}
++
++bool WarpCacheIRTranspiler::emitCallInlinedBoundFunction(
++    ObjOperandId calleeId, ObjOperandId targetId, Int32OperandId argcId,
++    CallFlags flags, uint32_t icScriptOffset, uint32_t numBoundArgs) {
++  return emitCallBoundScriptedFunction(calleeId, targetId, argcId, flags,
++                                       numBoundArgs);
++}
++
+ bool WarpCacheIRTranspiler::emitCallBoundScriptedFunction(
+     ObjOperandId calleeId, ObjOperandId targetId, Int32OperandId argcId,
+     CallFlags flags, uint32_t numBoundArgs) {
+@@ -6680,6 +6720,14 @@ bool WarpCacheIRTranspiler::emitCallBoundScriptedFunction(
+   MOZ_ASSERT(callInfo_->argFormat() == CallInfo::ArgFormat::Standard);
+   MOZ_ASSERT(callInfo_->constructing() == flags.isConstructing());
+ 
++  // We are transpiling to generate the correct guards. We also update the
++  // CallInfo to use the correct arguments. Code for the inlined function itself
++  // will be generated in WarpBuilder::buildInlinedCall.
++  if (callInfo_->isInlined()) {
++    return updateCallInfoForInlinedBoundCall(callee, target, flags,
++                                             numBoundArgs);
++  }
++
+   callInfo_->setCallee(target);
+   updateArgumentsFromOperands();
+ 
+@@ -6777,7 +6825,8 @@ bool WarpCacheIRTranspiler::emitSpecializedBindFunctionResult(
+   MOZ_ASSERT_IF(callInfo_, callInfo_->argc() == argc);
+   MOZ_ASSERT_IF(!callInfo_, argc == 0);
+ 
+-  auto* bound = MNewBoundFunction::New(alloc(), templateObj);
++  auto* templateConst = constant(ObjectValue(*templateObj));
++  auto* bound = MNewBoundFunction::New(alloc(), templateConst);
+   add(bound);
+ 
+   size_t numBoundArgs = argc > 0 ? argc - 1 : 0;
+diff --git a/js/src/jit/WarpOracle.cpp b/js/src/jit/WarpOracle.cpp
+index 39a5207000..c7d3be8eb0 100644
+--- a/js/src/jit/WarpOracle.cpp
++++ b/js/src/jit/WarpOracle.cpp
+@@ -881,6 +881,24 @@ bool WarpOracle::addFuseDependency(RealmFuses::FuseIndex fuseIndex) {
+                               CompilationDependency::Type::RegExpPrototype>;
+       return addDep(Dependency());
+     }
++    case RealmFuses::FuseIndex::ObjectProtoHasNoIndexedPropsFuse: {
++      using Dependency = RealmFuseDependency<
++          &RealmFuses::objectProtoHasNoIndexedPropsFuse,
++          CompilationDependency::Type::ObjectProtoHasNoIndexedProps>;
++      return addDep(Dependency());
++    }
++    case RealmFuses::FuseIndex::ArrayProtoHasNoIndexedPropsFuse: {
++      using Dependency = RealmFuseDependency<
++          &RealmFuses::arrayProtoHasNoIndexedPropsFuse,
++          CompilationDependency::Type::ArrayProtoHasNoIndexedProps>;
++      return addDep(Dependency());
++    }
++    case RealmFuses::FuseIndex::StringProtoHasNoIndexedPropsFuse: {
++      using Dependency = RealmFuseDependency<
++          &RealmFuses::stringProtoHasNoIndexedPropsFuse,
++          CompilationDependency::Type::StringProtoHasNoIndexedProps>;
++      return addDep(Dependency());
++    }
+     default:
+       MOZ_CRASH("Unexpected invalidating fuse");
+   }
+diff --git a/js/src/vm/NativeObject-inl.h b/js/src/vm/NativeObject-inl.h
+index 3d4b39b622..b317594dae 100644
+--- a/js/src/vm/NativeObject-inl.h
++++ b/js/src/vm/NativeObject-inl.h
+@@ -21,6 +21,7 @@
+ #include "vm/PropertyResult.h"
+ #include "vm/StringType.h"
+ #include "vm/TypedArrayObject.h"
++#include "vm/Watchtower.h"
+ 
+ #include "gc/Marking-inl.h"
+ #include "gc/ObjectKind-inl.h"
+@@ -922,6 +923,80 @@ MOZ_ALWAYS_INLINE bool AddDataPropertyToNativeObjectNoHooks(
+   return true;
+ }
+ 
++// Give empty object |target| the shape |newShape| and copy |numSlots| slots
++// from the |from| object.
++MOZ_ALWAYS_INLINE bool CopyPropertiesWithNewShape(JSContext* cx,
++                                                  PlainObject* target,
++                                                  PlainObject* from,
++                                                  SharedShape* newShape,
++                                                  uint32_t numSlots) {
++  MOZ_ASSERT(target->empty());
++  MOZ_ASSERT(target->isExtensible());
++  MOZ_ASSERT(!Watchtower::watchesPropertyAdd(target));
++  MOZ_ASSERT(from->slotSpan() == numSlots);
++
++  if (!target->setShapeAndAddNewSlots(cx, newShape, 0, numSlots)) {
++    return false;
++  }
++
++  MOZ_ASSERT(target->slotSpan() == numSlots);
++
++  for (size_t i = 0; i < numSlots; i++) {
++    target->initSlot(i, from->getSlot(i));
++  }
++  return true;
++}
++
++// Try to copy all |numProps| properties of |from| into the empty object
++// |target| by reusing |from|'s Shape or PropMap.
++//
++// All of |from|'s properties must be enumerable, configurable, and writable
++// data properties.
++//
++// Sets |*copied| to false if the Shape or PropMap can't be reused.
++MOZ_ALWAYS_INLINE bool TryCopyPropertiesReusingShapeOrPropMap(
++    JSContext* cx, Handle<PlainObject*> target, Handle<PlainObject*> from,
++    uint32_t numProps, bool* copied) {
++  MOZ_ASSERT(target->empty());
++  MOZ_ASSERT(numProps > 0);
++
++  *copied = false;
++
++  CanReuseShape canReuse = target->canReuseShapeForNewProperties(from->shape());
++  if (canReuse == CanReuseShape::NoReuse) {
++    return true;
++  }
++
++  MOZ_ASSERT(from->slotSpan() == numProps);
++
++  SharedShape* newShape;
++  if (canReuse == CanReuseShape::CanReuseShape) {
++    newShape = from->sharedShape();
++  } else {
++    // Get a shape with |from|'s PropMap and ObjectFlags (because we need the
++    // HasEnumerable flag checked in canReuseShapeForNewProperties) and the
++    // other fields (BaseShape, numFixedSlots) unchanged.
++    MOZ_ASSERT(canReuse == CanReuseShape::CanReusePropMap);
++    ObjectFlags objectFlags = from->sharedShape()->objectFlags();
++    Rooted<SharedPropMap*> map(cx, from->sharedShape()->propMap());
++    uint32_t mapLength = from->sharedShape()->propMapLength();
++    BaseShape* base = target->sharedShape()->base();
++    uint32_t nfixed = target->sharedShape()->numFixedSlots();
++    newShape = SharedShape::getPropMapShape(cx, base, nfixed, map, mapLength,
++                                            objectFlags);
++    if (!newShape) {
++      return false;
++    }
++  }
++
++  if (!CopyPropertiesWithNewShape(cx, target, from, newShape, numProps)) {
++    return false;
++  }
++
++  *copied = true;
++  return true;
++}
++
+ }  // namespace js
+ 
+ #endif /* vm_NativeObject_inl_h */
+diff --git a/js/src/vm/NativeObject.cpp b/js/src/vm/NativeObject.cpp
+index 64115a88b9..8f89c45e98 100644
+--- a/js/src/vm/NativeObject.cpp
++++ b/js/src/vm/NativeObject.cpp
+@@ -19,8 +19,10 @@
+ #include "vm/EqualityOperations.h"  // js::SameValue
+ #include "vm/GetterSetter.h"        // js::GetterSetter
+ #include "vm/Interpreter.h"         // js::CallGetter, js::CallSetter
++#include "vm/Iteration.h"           // js::ClassCanHaveExtraEnumeratedProperties
+ #include "vm/JSONPrinter.h"         // js::JSONPrinter
+ #include "vm/PlainObject.h"         // js::PlainObject
++#include "vm/Realm.h"               // js::PlainObjectCopyPropsCache
+ #include "vm/TypedArrayObject.h"
+ #include "vm/Watchtower.h"
+ #include "gc/Nursery-inl.h"
+@@ -473,10 +475,19 @@ bool NativeObject::addDenseElementPure(JSContext* cx, NativeObject* obj) {
+   MOZ_ASSERT_IF(obj->is<ArrayObject>(),
+                 obj->as<ArrayObject>().lengthIsWritable());
+ 
++  // We can't call Watchtower::watchFirstDenseElementAdd here because it can pop
++  // fuses, so fall back to the VM. This can only happen until the fuse is
++  // popped, which the VM does when it adds the element, so it's very rare in
++  // practice.
++  uint32_t oldCapacity = obj->getDenseCapacity();
++  if (MOZ_UNLIKELY(oldCapacity == 0 &&
++                   Watchtower::watchesFirstDenseElementAdd(obj))) {
++    return false;
++  }
++
+   // growElements will report OOM also if the number of dense elements will
+   // exceed MAX_DENSE_ELEMENTS_COUNT. See goodElementsAllocationAmount.
+-  uint32_t oldCapacity = obj->getDenseCapacity();
+-  if (MOZ_UNLIKELY(!obj->growElements(cx, oldCapacity + 1))) {
++  if (MOZ_UNLIKELY(!obj->growElementsNoWatchtowerCheck(cx, oldCapacity + 1))) {
+     cx->recoverFromOutOfMemory();
+     return false;
+   }
+@@ -888,6 +899,14 @@ bool NativeObject::goodElementsAllocationAmount(JSContext* cx,
+ }
+ 
+ bool NativeObject::growElements(JSContext* cx, uint32_t reqCapacity) {
++  if (getDenseCapacity() == 0) {
++    Watchtower::watchFirstDenseElementAdd(cx, this);
++  }
++  return growElementsNoWatchtowerCheck(cx, reqCapacity);
++}
++
++bool NativeObject::growElementsNoWatchtowerCheck(JSContext* cx,
++                                                 uint32_t reqCapacity) {
+   MOZ_ASSERT(isExtensible());
+   MOZ_ASSERT(canHaveNonEmptyElements());
+ 
+@@ -2947,21 +2966,48 @@ bool js::CopyDataPropertiesNative(JSContext* cx, Handle<PlainObject*> target,
+ 
+   // Don't use the fast path if |from| may have extra indexed or lazy
+   // properties.
+-  if (from->getDenseInitializedLength() > 0 || from->isIndexed() ||
+-      from->is<TypedArrayObject>() || from->getClass()->getNewEnumerate() ||
+-      from->getClass()->getEnumerate()) {
++  if (from->getDenseInitializedLength() > 0 || from->isIndexed()) {
+     return true;
+   }
++  const bool fromIsPlain = from->is<PlainObject>();
++  if (fromIsPlain) {
++    MOZ_ASSERT(!ClassCanHaveExtraEnumeratedProperties(from->getClass()));
++  } else {
++    if (ClassCanHaveExtraEnumeratedProperties(from->getClass())) {
++      return true;
++    }
++  }
++
++  // Check the plainObjectSpreadCache.
++  if (!excludedItems) {
++    const PlainObjectCopyPropsCache& cache =
++        cx->realm()->plainObjectSpreadCache;
++    if (SharedShape* newShape = cache.lookup(target->shape(), from->shape())) {
++      *optimized = true;
++      return CopyPropertiesWithNewShape(cx, target, &from->as<PlainObject>(),
++                                        newShape, newShape->slotSpan());
++    }
++  }
++
++  // If |target| contains no own properties, we can directly call
++  // AddDataPropertyToNativeObjectNoHooks.
++  const bool targetHadNoOwnProperties = target->empty();
++
++  // If |target| is empty and every property of |from| is a plain enumerable
++  // data property, we try to reuse |from|'s Shape or PropMap.
++  bool canReuseFromShape = !excludedItems && targetHadNoOwnProperties &&
++                           fromIsPlain &&
++                           !Watchtower::watchesPropertyAdd(target);
+ 
+   // Collect all enumerable data properties.
+   Rooted<PropertyInfoWithKeyVector> props(cx, PropertyInfoWithKeyVector(cx));
+ 
+-  Rooted<NativeShape*> fromShape(cx, from->shape());
+-  for (ShapePropertyIter<NoGC> iter(fromShape); !iter.done(); iter++) {
++  for (ShapePropertyIter<NoGC> iter(from->shape()); !iter.done(); iter++) {
+     jsid id = iter->key();
+     MOZ_ASSERT(!id.isInt());
+ 
+     if (!iter->enumerable()) {
++      canReuseFromShape = false;
+       continue;
+     }
+     if (excludedItems && excludedItems->contains(cx, id)) {
+@@ -2977,6 +3023,10 @@ bool js::CopyDataPropertiesNative(JSContext* cx, Handle<PlainObject*> target,
+       return true;
+     }
+ 
++    if (iter->flags() != PropertyFlags::defaultDataPropFlags) {
++      canReuseFromShape = false;
++    }
++
+     if (!props.append(*iter)) {
+       return false;
+     }
+@@ -2984,12 +3034,27 @@ bool js::CopyDataPropertiesNative(JSContext* cx, Handle<PlainObject*> target,
+ 
+   *optimized = true;
+ 
+-  // If |target| contains no own properties, we can directly call
+-  // AddDataPropertyNonPrototype.
+-  const bool targetHadNoOwnProperties = target->empty();
++  if (canReuseFromShape && !props.empty()) {
++    Rooted<Shape*> origTargetShape(cx, target->shape());
++    Handle<PlainObject*> fromPlain = Handle<JSObject*>(from).as<PlainObject>();
++    bool copied;
++    if (!TryCopyPropertiesReusingShapeOrPropMap(cx, target, fromPlain,
++                                                props.length(), &copied)) {
++      return false;
++    }
++    if (copied) {
++      cx->realm()->plainObjectSpreadCache.fill(&origTargetShape->asShared(),
++                                               fromPlain->sharedShape(),
++                                               target->sharedShape());
++      return true;
++    }
++  }
+ 
+   RootedId key(cx);
+   RootedValue value(cx);
++#ifdef DEBUG
++  Rooted<NativeShape*> fromShape(cx, from->shape());
++#endif
+   for (size_t i = props.length(); i > 0; i--) {
+     PropertyInfoWithKey prop = props[i - 1];
+     MOZ_ASSERT(prop.isDataProperty());
+diff --git a/js/src/vm/NativeObject.h b/js/src/vm/NativeObject.h
+index c170aa32ee..26818f235a 100644
+--- a/js/src/vm/NativeObject.h
++++ b/js/src/vm/NativeObject.h
+@@ -1512,6 +1512,9 @@ class NativeObject : public JSObject {
+   void shrinkElements(JSContext* cx, uint32_t cap);
+ 
+  private:
++  // Like growElements, but doesn't call Watchtower::watchFirstDenseElementAdd.
++  bool growElementsNoWatchtowerCheck(JSContext* cx, uint32_t newcap);
++
+   // Run a post write barrier that encompasses multiple contiguous elements in a
+   // single step.
+   inline void elementsRangePostWriteBarrier(uint32_t start, uint32_t count);
+diff --git a/js/src/vm/Realm.cpp b/js/src/vm/Realm.cpp
+index 04f75ffe1f..87c37cc49d 100644
+--- a/js/src/vm/Realm.cpp
++++ b/js/src/vm/Realm.cpp
+@@ -363,6 +363,7 @@ void Realm::purge() {
+   newProxyCache.purge();
+   newPlainObjectWithPropsCache.purge();
+   plainObjectAssignCache.purge();
++  plainObjectSpreadCache.purge();
+   objects_.iteratorCache.clearAndCompact();
+ }
+ 
+diff --git a/js/src/vm/Realm.h b/js/src/vm/Realm.h
+index c60b7da46f..143a532cb4 100644
+--- a/js/src/vm/Realm.h
++++ b/js/src/vm/Realm.h
+@@ -144,18 +144,18 @@ class NewPlainObjectWithPropsCache {
+   }
+ };
+ 
+-// Cache for Object.assign's fast path for two plain objects. It's used to
+-// optimize:
++// Cache used to optimize the following operations for plain objects:
+ //
+ //   Object.assign(to, from)
++//   to = {...from}
+ //
+ // If the |to| object has shape |emptyToShape_| (shape with no properties) and
+ // the |from| object has shape |fromShape_|, we can use |newToShape_| for |to|
+-// and copy all (data)) properties from the |from| object.
++// and copy all (data) properties from the |from| object.
+ //
+-// This is a one-entry cache for now. It has a hit rate of > 90% on both
+-// Speedometer 2 and Speedometer 3.
+-class MOZ_NON_TEMPORARY_CLASS PlainObjectAssignCache {
++// This is a one-entry cache for now. The Object.assign cache has a hit rate of
++// > 90% on both Speedometer 2 and Speedometer 3.
++class MOZ_NON_TEMPORARY_CLASS PlainObjectCopyPropsCache {
+   SharedShape* emptyToShape_ = nullptr;
+   SharedShape* fromShape_ = nullptr;
+   SharedShape* newToShape_ = nullptr;
+@@ -167,9 +167,9 @@ class MOZ_NON_TEMPORARY_CLASS PlainObjectAssignCache {
+ #endif
+ 
+  public:
+-  PlainObjectAssignCache() = default;
+-  PlainObjectAssignCache(const PlainObjectAssignCache&) = delete;
+-  void operator=(const PlainObjectAssignCache&) = delete;
++  PlainObjectCopyPropsCache() = default;
++  PlainObjectCopyPropsCache(const PlainObjectCopyPropsCache&) = delete;
++  void operator=(const PlainObjectCopyPropsCache&) = delete;
+ 
+   SharedShape* lookup(Shape* emptyToShape, Shape* fromShape) const {
+     if (emptyToShape_ == emptyToShape && fromShape_ == fromShape) {
+@@ -430,7 +430,12 @@ class JS::Realm : public JS::shadow::Realm {
+   js::DtoaCache dtoaCache;
+   js::NewProxyCache newProxyCache;
+   js::NewPlainObjectWithPropsCache newPlainObjectWithPropsCache;
+-  js::PlainObjectAssignCache plainObjectAssignCache;
++  js::PlainObjectCopyPropsCache plainObjectAssignCache;
++
++  // Same, for object spread. Separate because spread defines own properties
++  // while Object.assign uses [[Set]], so Object.assign must not reuse a shape
++  // derived from a |from| with an own __proto__ property.
++  js::PlainObjectCopyPropsCache plainObjectSpreadCache;
+ 
+   // Last time at which an animation was played for this realm.
+   js::MainThreadData<mozilla::TimeStamp> lastAnimationTime;
+diff --git a/js/src/vm/RealmFuses.cpp b/js/src/vm/RealmFuses.cpp
+index 32ff463c68..a7fedc47e7 100644
+--- a/js/src/vm/RealmFuses.cpp
++++ b/js/src/vm/RealmFuses.cpp
+@@ -19,6 +19,7 @@
+ #include "vm/SelfHosting.h"
+ 
+ #include "vm/JSObject-inl.h"
++#include "vm/NativeObject-inl.h"
+ 
+ using namespace js;
+ 
+@@ -661,3 +662,75 @@ bool js::OptimizeWeakSetPrototypeAddFuse::checkInvariant(JSContext* cx) {
+   return ObjectHasDataPropertyFunction(proto, NameToId(cx->names().add),
+                                        WeakSetObject::add);
+ }
++
++static bool ProtoHasNoIndexedProps(NativeObject* proto) {
++  return proto->getDenseInitializedLength() == 0 &&
++         proto->getDenseCapacity() == 0 && !proto->isIndexed();
++}
++
++bool js::ObjectProtoHasNoIndexedPropsFuse::checkInvariant(JSContext* cx) {
++  auto* objectProto = &cx->global()->getObjectPrototype().as<NativeObject>();
++  MOZ_ASSERT(objectProto->staticPrototype() == nullptr,
++             "Object.prototype has an immutable null [[Prototype]]");
++  return ProtoHasNoIndexedProps(objectProto);
++}
++
++void js::ObjectProtoHasNoIndexedPropsFuse::popFuse(JSContext* cx,
++                                                   RealmFuses& realmFuses) {
++  InvalidatingRealmFuse::popFuse(cx, realmFuses);
++  realmFuses.arrayProtoHasNoIndexedPropsFuse.popFuse(cx, realmFuses);
++  realmFuses.stringProtoHasNoIndexedPropsFuse.popFuse(cx, realmFuses);
++}
++
++bool js::ArrayProtoHasNoIndexedPropsFuse::checkInvariant(JSContext* cx) {
++  NativeObject* arrayProto = cx->global()->maybeGetArrayPrototype();
++  if (!arrayProto) {
++    return true;
++  }
++  auto* objectProto = &cx->global()->getObjectPrototype().as<NativeObject>();
++  return ProtoHasNoIndexedProps(arrayProto) &&
++         arrayProto->staticPrototype() == objectProto &&
++         cx->realm()->realmFuses.objectProtoHasNoIndexedPropsFuse.intact();
++}
++
++bool js::StringProtoHasNoIndexedPropsFuse::checkInvariant(JSContext* cx) {
++  auto* stringProto =
++      cx->global()->maybeGetPrototype<NativeObject>(JSProto_String);
++  if (!stringProto) {
++    return true;
++  }
++  auto* objectProto = &cx->global()->getObjectPrototype().as<NativeObject>();
++  return ProtoHasNoIndexedProps(stringProto) &&
++         stringProto->staticPrototype() == objectProto &&
++         cx->realm()->realmFuses.objectProtoHasNoIndexedPropsFuse.intact();
++}
++
++mozilla::Maybe<RealmFuses::FuseIndex> js::MaybeGetHasNoIndexedPropsFuseIndex(
++    GlobalObject* global, JSObject* proto) {
++  if (!proto) {
++    return mozilla::Nothing();
++  }
++  if (proto == global->maybeGetPrototype(JSProto_Object)) {
++    return mozilla::Some(
++        RealmFuses::FuseIndex::ObjectProtoHasNoIndexedPropsFuse);
++  }
++  if (proto == global->maybeGetArrayPrototype()) {
++    return mozilla::Some(
++        RealmFuses::FuseIndex::ArrayProtoHasNoIndexedPropsFuse);
++  }
++  if (proto == global->maybeGetPrototype(JSProto_String)) {
++    return mozilla::Some(
++        RealmFuses::FuseIndex::StringProtoHasNoIndexedPropsFuse);
++  }
++  return mozilla::Nothing();
++}
++
++InvalidatingRealmFuse* js::MaybeGetHasNoIndexedPropsFuse(NativeObject* proto) {
++  auto index = MaybeGetHasNoIndexedPropsFuseIndex(&proto->global(), proto);
++  if (index.isNothing()) {
++    return nullptr;
++  }
++  MOZ_ASSERT(RealmFuses::isInvalidatingFuse(*index));
++  GuardFuse* fuse = proto->realm()->realmFuses.getFuseByIndex(*index);
++  return static_cast<InvalidatingRealmFuse*>(fuse);
++}
+diff --git a/js/src/vm/RealmFuses.h b/js/src/vm/RealmFuses.h
+index aa4a5531d3..911f056cbe 100644
+--- a/js/src/vm/RealmFuses.h
++++ b/js/src/vm/RealmFuses.h
+@@ -5,11 +5,14 @@
+ #ifndef vm_RealmFuses_h
+ #define vm_RealmFuses_h
+ 
++#include "mozilla/Maybe.h"
++
+ #include "vm/GuardFuse.h"
+ #include "vm/InvalidatingFuse.h"
+ 
+ namespace js {
+ 
++class GlobalObject;
+ class NativeObject;
+ struct RealmFuses;
+ 
+@@ -322,6 +325,44 @@ struct OptimizeWeakSetPrototypeAddFuse final : public RealmFuse {
+   virtual bool checkInvariant(JSContext* cx) override;
+ };
+ 
++// If this fuse is intact, the following invariant must hold:
++// - Object.prototype has no indexed properties (no dense elements and no
++//   sparse indexed properties).
++//
++// Object.prototype's [[Prototype]] is immutable and always null, so this fuse
++// also covers the prototype chain of Object.prototype.
++struct ObjectProtoHasNoIndexedPropsFuse final : public InvalidatingRealmFuse {
++  virtual const char* name() override {
++    return "ObjectProtoHasNoIndexedPropsFuse";
++  }
++  virtual bool checkInvariant(JSContext* cx) override;
++  virtual void popFuse(JSContext* cx, RealmFuses& realmFuses) override;
++};
++
++// If this fuse is intact, the following invariants must hold:
++// - Array.prototype has no indexed properties (no dense elements and no
++//   sparse indexed properties).
++// - Array.prototype's [[Prototype]] is Object.prototype.
++// - The Object.prototype fuse (ObjectProtoHasNoIndexedPropsFuse) is intact.
++struct ArrayProtoHasNoIndexedPropsFuse final : public InvalidatingRealmFuse {
++  virtual const char* name() override {
++    return "ArrayProtoHasNoIndexedPropsFuse";
++  }
++  virtual bool checkInvariant(JSContext* cx) override;
++};
++
++// If this fuse is intact, the following invariants must hold:
++// - String.prototype has no indexed properties (no dense elements and no
++//   sparse indexed properties).
++// - String.prototype's [[Prototype]] is Object.prototype.
++// - The Object.prototype fuse (ObjectProtoHasNoIndexedPropsFuse) is intact.
++struct StringProtoHasNoIndexedPropsFuse final : public InvalidatingRealmFuse {
++  virtual const char* name() override {
++    return "StringProtoHasNoIndexedPropsFuse";
++  }
++  virtual bool checkInvariant(JSContext* cx) override;
++};
++
+ #define FOR_EACH_REALM_FUSE(FUSE)                                              \
+   FUSE(OptimizeGetIteratorFuse, optimizeGetIteratorFuse)                       \
+   FUSE(OptimizeGetIteratorBytecodeFuse, optimizeGetIteratorBytecodeFuse)       \
+@@ -348,7 +389,10 @@ struct OptimizeWeakSetPrototypeAddFuse final : public RealmFuse {
+   FUSE(OptimizeMapPrototypeSetFuse, optimizeMapPrototypeSetFuse)               \
+   FUSE(OptimizeSetPrototypeAddFuse, optimizeSetPrototypeAddFuse)               \
+   FUSE(OptimizeWeakMapPrototypeSetFuse, optimizeWeakMapPrototypeSetFuse)       \
+-  FUSE(OptimizeWeakSetPrototypeAddFuse, optimizeWeakSetPrototypeAddFuse)
++  FUSE(OptimizeWeakSetPrototypeAddFuse, optimizeWeakSetPrototypeAddFuse)       \
++  FUSE(ObjectProtoHasNoIndexedPropsFuse, objectProtoHasNoIndexedPropsFuse)     \
++  FUSE(ArrayProtoHasNoIndexedPropsFuse, arrayProtoHasNoIndexedPropsFuse)       \
++  FUSE(StringProtoHasNoIndexedPropsFuse, stringProtoHasNoIndexedPropsFuse)
+ 
+ struct RealmFuses {
+   RealmFuses() = default;
+@@ -411,6 +455,15 @@ struct RealmFuses {
+   }
+ };
+ 
++// If |proto| is one of |global|'s prototypes covered by the fuses for indexed
++// properties on prototypes, returns the index of its fuse.
++mozilla::Maybe<RealmFuses::FuseIndex> MaybeGetHasNoIndexedPropsFuseIndex(
++    GlobalObject* global, JSObject* proto);
++
++// Like MaybeGetHasNoIndexedPropsFuseIndex, but for |proto|'s own realm and
++// returns the fuse or nullptr.
++InvalidatingRealmFuse* MaybeGetHasNoIndexedPropsFuse(NativeObject* proto);
++
+ }  // namespace js
+ 
+ #endif
+diff --git a/js/src/vm/SelfHosting.cpp b/js/src/vm/SelfHosting.cpp
+index 070a2ff666..3106112ba0 100644
+--- a/js/src/vm/SelfHosting.cpp
++++ b/js/src/vm/SelfHosting.cpp
+@@ -1339,36 +1339,36 @@ static bool intrinsic_PromiseResolve(JSContext* cx, unsigned argc, Value* vp) {
+   return true;
+ }
+ 
+-static bool intrinsic_CopyDataPropertiesOrGetOwnKeys(JSContext* cx,
+-                                                     unsigned argc, Value* vp) {
++static bool intrinsic_CopyDataProperties(JSContext* cx, unsigned argc,
++                                         Value* vp) {
+   CallArgs args = CallArgsFromVp(argc, vp);
+   MOZ_ASSERT(args.length() == 3);
+   MOZ_ASSERT(args[0].isObject());
+-  MOZ_ASSERT(args[1].isObject());
+-  MOZ_ASSERT(args[2].isObjectOrNull());
++  MOZ_ASSERT(args[2].isObject());
+ 
+   RootedObject target(cx, &args[0].toObject());
+-  RootedObject from(cx, &args[1].toObject());
+-  RootedObject excludedItems(cx, args[2].toObjectOrNull());
+-
+-  if (from->is<NativeObject>() && target->is<PlainObject>() &&
+-      (!excludedItems || excludedItems->is<PlainObject>())) {
+-    bool optimized;
+-    if (!CopyDataPropertiesNative(
+-            cx, target.as<PlainObject>(), from.as<NativeObject>(),
+-            (excludedItems ? excludedItems.as<PlainObject>() : nullptr),
+-            &optimized)) {
+-      return false;
+-    }
++  RootedObject excludedItems(cx, &args[2].toObject());
++  if (!CopyDataProperties(cx, target, args[1], excludedItems)) {
++    return false;
++  }
+ 
+-    if (optimized) {
+-      args.rval().setNull();
+-      return true;
+-    }
++  args.rval().setUndefined();
++  return true;
++}
++
++static bool intrinsic_CopyDataPropertiesUnfiltered(JSContext* cx, unsigned argc,
++                                                   Value* vp) {
++  CallArgs args = CallArgsFromVp(argc, vp);
++  MOZ_ASSERT(args.length() == 2);
++  MOZ_ASSERT(args[0].isObject());
++
++  RootedObject target(cx, &args[0].toObject());
++  if (!CopyDataProperties(cx, target, args[1], nullptr)) {
++    return false;
+   }
+ 
+-  return GetOwnPropertyKeys(
+-      cx, from, JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS, args.rval());
++  args.rval().setUndefined();
++  return true;
+ }
+ 
+ static bool intrinsic_NewWrapForValidIterator(JSContext* cx, unsigned argc,
+@@ -1571,8 +1571,9 @@ static const JSFunctionSpec intrinsic_functions[] = {
+                     IntrinsicCanOptimizeArraySpecies),
+     JS_FN("ConstructFunction", intrinsic_ConstructFunction, 2, 0),
+     JS_FN("ConstructorForTypedArray", intrinsic_ConstructorForTypedArray, 1, 0),
+-    JS_FN("CopyDataPropertiesOrGetOwnKeys",
+-          intrinsic_CopyDataPropertiesOrGetOwnKeys, 3, 0),
++    JS_FN("CopyDataProperties", intrinsic_CopyDataProperties, 3, 0),
++    JS_FN("CopyDataPropertiesUnfiltered",
++          intrinsic_CopyDataPropertiesUnfiltered, 2, 0),
+     JS_FN("CreateAsyncFromSyncIterator", intrinsic_CreateAsyncFromSyncIterator,
+           2, 0),
+     JS_FN("CreateMapIterationResultPair",
+@@ -1812,7 +1813,6 @@ static const JSFunctionSpec intrinsic_functions[] = {
+     JS_INLINABLE_FN("std_Object_create", obj_create, 2, 0, ObjectCreate),
+     JS_INLINABLE_FN("std_Object_isPrototypeOf", obj_isPrototypeOf, 1, 0,
+                     ObjectIsPrototypeOf),
+-    JS_FN("std_Object_propertyIsEnumerable", obj_propertyIsEnumerable, 1, 0),
+     JS_FN("std_Object_setProto", obj_setProto, 1, 0),
+     JS_INLINABLE_FN("std_Object_toString", obj_toString, 0, 0, ObjectToString),
+     JS_INLINABLE_FN("std_Reflect_getPrototypeOf", Reflect_getPrototypeOf, 1, 0,
+diff --git a/js/src/vm/SharedStencil.h b/js/src/vm/SharedStencil.h
+index 08d5965e39..54e576986c 100644
+--- a/js/src/vm/SharedStencil.h
++++ b/js/src/vm/SharedStencil.h
+@@ -788,12 +788,15 @@ using SharedImmutableScriptDataTable =
+ 
+ struct MemberInitializers {
+ #ifdef ENABLE_DECORATORS
+-  static constexpr size_t NumBits = 30;
++  static constexpr size_t NumBits = 29;
+ #else
+-  static constexpr size_t NumBits = 31;
++  static constexpr size_t NumBits = 30;
+ #endif
+   static constexpr uint32_t MaxInitializers = BitMask(NumBits);
+ 
++  // Classes with more fields than this fall back to the `.initializers` array.
++  static constexpr size_t MaxInlinedFields = 8;
++
+ #ifdef DEBUG
+   bool valid = false;
+ #endif
+@@ -804,6 +807,8 @@ struct MemberInitializers {
+   bool hasDecorators : 1;
+ #endif
+ 
++  bool hasInlinedFields : 1;
++
+   // This struct will eventually have a vector of constant values for optimizing
+   // field initializers.
+   uint32_t numMemberInitializers : NumBits;
+@@ -812,7 +817,8 @@ struct MemberInitializers {
+ #ifdef ENABLE_DECORATORS
+                      bool hasDecorators,
+ #endif
+-                     uint32_t numMemberInitializers)
++                     uint32_t numMemberInitializers,
++                     bool hasInlinedFields = false)
+       :
+ #ifdef DEBUG
+         valid(true),
+@@ -821,15 +827,16 @@ struct MemberInitializers {
+ #ifdef ENABLE_DECORATORS
+         hasDecorators(hasDecorators),
+ #endif
++        hasInlinedFields(hasInlinedFields),
+         numMemberInitializers(numMemberInitializers) {
+ #ifdef ENABLE_DECORATORS
+     MOZ_ASSERT(
+         this->numMemberInitializers == numMemberInitializers,
+-        "numMemberInitializers should easily fit in the 30-bit bitfield");
++        "numMemberInitializers should easily fit in the 29-bit bitfield");
+ #else
+     MOZ_ASSERT(
+         this->numMemberInitializers == numMemberInitializers,
+-        "numMemberInitializers should easily fit in the 31-bit bitfield");
++        "numMemberInitializers should easily fit in the 30-bit bitfield");
+ #endif
+   }
+ 
+@@ -849,22 +856,25 @@ struct MemberInitializers {
+ 
+   uint32_t serialize() const {
+ #ifdef ENABLE_DECORATORS
+-    auto serialised = (hasPrivateBrand << (NumBits + 1)) |
+-                      hasDecorators << NumBits | numMemberInitializers;
++    auto serialised = (hasPrivateBrand << (NumBits + 2)) |
++                      (hasDecorators << (NumBits + 1)) |
++                      (hasInlinedFields << NumBits) | numMemberInitializers;
+     return serialised;
+ #else
+-    return (hasPrivateBrand << NumBits) | numMemberInitializers;
++    return (hasPrivateBrand << (NumBits + 1)) | (hasInlinedFields << NumBits) |
++           numMemberInitializers;
+ #endif
+   }
+ 
+   static MemberInitializers deserialize(uint32_t bits) {
+ #ifdef ENABLE_DECORATORS
+-    return MemberInitializers((bits & Bit(NumBits + 1)) != 0,
+-                              (bits & Bit(NumBits)) != 0,
+-                              bits & BitMask(NumBits));
++    return MemberInitializers(
++        (bits & Bit(NumBits + 2)) != 0, (bits & Bit(NumBits + 1)) != 0,
++        bits & BitMask(NumBits), (bits & Bit(NumBits)) != 0);
+ #else
+-    return MemberInitializers((bits & Bit(NumBits)) != 0,
+-                              bits & BitMask(NumBits));
++    return MemberInitializers((bits & Bit(NumBits + 1)) != 0,
++                              bits & BitMask(NumBits),
++                              (bits & Bit(NumBits)) != 0);
+ #endif
+   }
+ 
+@@ -878,6 +888,7 @@ struct MemberInitializers {
+ #ifdef ENABLE_DECORATORS
+         hasDecorators(false),
+ #endif
++        hasInlinedFields(false),
+         numMemberInitializers(0) {
+   }
+ };
+diff --git a/js/src/vm/Watchtower.cpp b/js/src/vm/Watchtower.cpp
+index 80a61141e5..ec0ff98bad 100644
+--- a/js/src/vm/Watchtower.cpp
++++ b/js/src/vm/Watchtower.cpp
+@@ -4,6 +4,7 @@
+ 
+ #include "vm/Watchtower.h"
+ 
++#include "builtin/Array.h"
+ #include "js/CallAndConstruct.h"
+ #include "js/experimental/TypedData.h"
+ #include "vm/Compartment.h"
+@@ -146,6 +147,13 @@ void MaybePopReturnFuses(JSContext* cx, Handle<NativeObject*> nobj) {
+   }
+ }
+ 
++static void MaybePopHasNoIndexedPropsFuses(JSContext* cx, NativeObject* nobj) {
++  MOZ_ASSERT(nobj->hasRealmFuseProperty());
++  if (InvalidatingRealmFuse* fuse = MaybeGetHasNoIndexedPropsFuse(nobj)) {
++    fuse->popFuse(cx, nobj->realm()->realmFuses);
++  }
++}
++
+ // static
+ bool Watchtower::watchPropertyAddSlow(JSContext* cx, Handle<NativeObject*> obj,
+                                       HandleId id) {
+@@ -163,6 +171,12 @@ bool Watchtower::watchPropertyAddSlow(JSContext* cx, Handle<NativeObject*> obj,
+       MaybePopReturnFuses(cx, obj);
+     }
+   }
++  if (MOZ_UNLIKELY(obj->hasRealmFuseProperty())) {
++    uint32_t index;
++    if (IdIsIndex(id, &index) && !obj->isIndexed()) {
++      MaybePopHasNoIndexedPropsFuses(cx, obj);
++    }
++  }
+ 
+   if (MOZ_UNLIKELY(obj->useWatchtowerTestingLog())) {
+     RootedValue val(cx, IdToValue(id));
+@@ -258,6 +272,13 @@ static_assert(
+     "IsTypedArrayProtoKey(JSProto_TypedArray) is expected to return false");
+ 
+ static bool WatchProtoChangeImpl(JSContext* cx, HandleObject obj) {
++  if (obj->is<NativeObject>()) {
++    NativeObject* nobj = &obj->as<NativeObject>();
++    if (MOZ_UNLIKELY(nobj->hasRealmFuseProperty())) {
++      MaybePopHasNoIndexedPropsFuses(cx, nobj);
++    }
++  }
++
+   if (!obj->isUsedAsPrototype()) {
+     return true;
+   }
+@@ -307,6 +328,23 @@ bool Watchtower::watchProtoChangeSlow(JSContext* cx, HandleObject obj) {
+   return true;
+ }
+ 
++// static
++bool Watchtower::watchesFirstDenseElementAddSlow(NativeObject* obj) {
++  MOZ_ASSERT(obj->hasRealmFuseProperty());
++
++  // Adding a dense element only matters if it would pop one of the fuses for
++  // indexed properties on prototypes.
++  InvalidatingRealmFuse* fuse = MaybeGetHasNoIndexedPropsFuse(obj);
++  return fuse && fuse->intact();
++}
++
++// static
++void Watchtower::watchFirstDenseElementAddSlow(JSContext* cx,
++                                               NativeObject* obj) {
++  MOZ_ASSERT(watchesFirstDenseElementAdd(obj));
++  MaybePopHasNoIndexedPropsFuses(cx, obj);
++}
++
+ static void MaybePopArrayConstructorFuses(JSContext* cx, NativeObject* obj,
+                                           jsid id) {
+   if (obj != obj->global().maybeGetConstructor(JSProto_Array)) {
+diff --git a/js/src/vm/Watchtower.h b/js/src/vm/Watchtower.h
+index b47a7f854c..f9d89616d4 100644
+--- a/js/src/vm/Watchtower.h
++++ b/js/src/vm/Watchtower.h
+@@ -29,6 +29,9 @@ enum class SetSlotOptimizable { Yes, No, NotYet };
+ // - Invalidating the MegamorphicCache, a property lookup cache for megamorphic
+ //   property accesses. See the SMDOC comment in vm/Caches.h.
+ //
++// - Popping realm fuses and object fuses. See the SMDOC comments in
++//   vm/GuardFuse.h and vm/ObjectFuse.h.
++//
+ // There's also a testing mechanism that lets us write tests for Watchtower
+ // hooks. See setWatchtowerCallback and addWatchtowerTarget defined in
+ // TestingFunctions.cpp.
+@@ -52,6 +55,8 @@ class Watchtower {
+   static bool watchFreezeOrSealSlow(JSContext* cx, Handle<NativeObject*> obj,
+                                     IntegrityLevel level);
+   static bool watchProtoChangeSlow(JSContext* cx, HandleObject obj);
++  static bool watchesFirstDenseElementAddSlow(NativeObject* obj);
++  static void watchFirstDenseElementAddSlow(JSContext* cx, NativeObject* obj);
+   static SetSlotOptimizable canOptimizeSetSlotSlow(JSContext* cx,
+                                                    NativeObject* obj,
+                                                    PropertyKey key,
+@@ -59,8 +64,9 @@ class Watchtower {
+ 
+  public:
+   static bool watchesPropertyAdd(NativeObject* obj) {
+-    return obj->hasAnyFlag(
+-        {ObjectFlag::IsUsedAsPrototype, ObjectFlag::UseWatchtowerTestingLog});
++    return obj->hasAnyFlag({ObjectFlag::IsUsedAsPrototype,
++                            ObjectFlag::UseWatchtowerTestingLog,
++                            ObjectFlag::HasRealmFuseProperty});
+   }
+   static bool watchesPropertyRemove(NativeObject* obj) {
+     return obj->hasAnyFlag(
+@@ -83,8 +89,12 @@ class Watchtower {
+         {ObjectFlag::IsUsedAsPrototype, ObjectFlag::UseWatchtowerTestingLog});
+   }
+   static bool watchesProtoChange(JSObject* obj) {
+-    return obj->hasAnyFlag(
+-        {ObjectFlag::IsUsedAsPrototype, ObjectFlag::UseWatchtowerTestingLog});
++    return obj->hasAnyFlag({ObjectFlag::IsUsedAsPrototype,
++                            ObjectFlag::UseWatchtowerTestingLog,
++                            ObjectFlag::HasRealmFuseProperty});
++  }
++  static bool watchesFirstDenseElementAdd(NativeObject* obj) {
++    return obj->hasRealmFuseProperty() && watchesFirstDenseElementAddSlow(obj);
+   }
+   static SetSlotOptimizable canOptimizeSetSlot(JSContext* cx, NativeObject* obj,
+                                                PropertyKey key,
+@@ -154,6 +164,16 @@ class Watchtower {
+     }
+     return watchProtoChangeSlow(cx, obj);
+   }
++
++  // Called when a dense element is added to an object with a dense elements
++  // capacity of zero, before allocating the elements.
++  static void watchFirstDenseElementAdd(JSContext* cx, NativeObject* obj) {
++    MOZ_ASSERT(obj->getDenseCapacity() == 0);
++    if (MOZ_LIKELY(!watchesFirstDenseElementAdd(obj))) {
++      return;
++    }
++    watchFirstDenseElementAddSlow(cx, obj);
++  }
+ };
+ 
+ }  // namespace js
+diff --git a/modules/libpref/init/StaticPrefList.yaml b/modules/libpref/init/StaticPrefList.yaml
+index ce7b15fbe9..7f543a9226 100644
+--- a/modules/libpref/init/StaticPrefList.yaml
++++ b/modules/libpref/init/StaticPrefList.yaml
+@@ -9513,6 +9513,13 @@
+   mirror: always
+   set_spidermonkey_pref: startup
+ 
++  # Improve field initializer bytecode.
++- name: javascript.options.experimental.inline_simple_field_initializers
++  type: bool
++  value: true
++  mirror: always
++  set_spidermonkey_pref: startup
++
+ #ifdef NIGHTLY_BUILD
+   # Experimental support for Async Iterator Helpers in JavaScript.
+ -   name: javascript.options.experimental.async_iterator_helpers
+diff --git a/js/src/jit-test/tests/parser/script-source-extent.js b/js/src/jit-test/tests/parser/script-source-extent.js
+index 01624ed143..4768691ec5 100644
+--- a/js/src/jit-test/tests/parser/script-source-extent.js
++++ b/js/src/jit-test/tests/parser/script-source-extent.js
+@@ -208,13 +208,10 @@ testSourceExtent(`let C = class extends class { } { constructor() { } }`,
+ // Class field initializers lambdas.
+ // NOTE: These are an implementation detail and may be optimized away in future.
+ testSourceExtent(`class C { field }`,
+-                 `          ^----^ `,
+                  `^----------------`);
+ testSourceExtent(`class C { field; }`,
+-                 `          ^----^  `,
+                  `^-----------------`);
+ testSourceExtent(`class C { "field" }`,
+-                 `          ^------^ `,
+                  `^------------------`);
+ testSourceExtent(`class C { 0 }`,
+                  `          ^^ `,
+@@ -223,10 +220,8 @@ testSourceExtent(`class C { [1n] }`,
+                  `          ^---^ `,
+                  `^---------------`);
+ testSourceExtent(`class C { field = 1 }`,
+-                 `          ^--------^ `,
+                  `^--------------------`);
+ testSourceExtent(`class C { "field" = 1 }`,
+-                 `          ^----------^ `,
+                  `^----------------------`);
+ testSourceExtent(`class C { 0 = 1 }`,
+                  `          ^----^ `,
+@@ -276,10 +271,8 @@ testSourceExtent(`class C { static set prop(v) {} }`,
+ // Private class field initializer lambdas.
+ // NOTE: These are an implementation detail and may be optimized away in future.
+ testSourceExtent(`class C { #field }`,
+-                 `          ^-----^ `,
+                  `^-----------------`);
+ testSourceExtent(`class C { #field = 1 }`,
+-                 `          ^---------^ `,
+                  `^---------------------`);
+ testSourceExtent(`class C { static #field }`,
+                  `                 ^-----^ `,

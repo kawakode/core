@@ -174,6 +174,7 @@ Le principe est de ne pas patcher Gecko. Les exceptions sont petites, dans
 | `0004-hevc-ffvpx-core` | Activer le décodeur H.265/HEVC de FFmpeg dans le ffvpx embarqué |
 | `0007-remote-settings-opt-in-core` | Aucune requête Remote Settings (synchronisation, pièces jointes) tant que `core.remotesettings.enabled` est faux : Core n'utilise que les listes livrées ; la case Réglages > Listes de sécurité active la mise à jour depuis Mozilla |
 | `0008-stylo-invalidation-has-core` | Rétroportage de deux corrections de Stylo de Firefox 155/156 (bugs 2052855 et 2058995) : l'invalidation des sélecteurs `:has()` ne parcourt plus deux fois les descendants à chaque changement d'attribut. Les pages qui réécrivent leurs styles en boucle (Google Store) redeviennent réactives. À retirer à la prochaine ESR |
+| `0009-spidermonkey-retroportages-core` | Rétroportage de quatre optimisations de SpiderMonkey de Firefox 154 à 162 à gain fort : champs de classe (+20 %), fusibles d'index de tableau, copie d'objets `{...obj}` (×3), fonctions liées (×11). Voir Performances. À retirer à la prochaine ESR |
 
 ## Multimédia
 
