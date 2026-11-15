@@ -8,7 +8,7 @@
 # correction par Mozilla (montée d'ESR) ou qu'elle ne touche pas Core.
 # À chaque montée d'ESR, retirer les lignes devenues inutiles.
 
-# Gecko 153.6.0esr, crates compilées dans libxul : à corriger par Mozilla.
+# Gecko 153.7.0esr, crates compilées dans libxul : à corriger par Mozilla.
 bincode RUSTSEC-2025-0141  # Bincode is unmaintained
 paste RUSTSEC-2024-0436  # paste - no longer maintained
 pin-utils RUSTSEC-2026-0441  # pin-utils is unmaintained : via futures-util, pas de faille
@@ -20,8 +20,10 @@ serde_with GHSA-7gcf-g7xr-8hxj  # serde_with: KeyValueMap serialization panics o
 smallbitvec CVE-2026-44983  # smallbitvec: Integer overflow in safe API leads to heap buffer overflo
 tokio RUSTSEC-2026-0386  # `AsyncFd::new` and related constructors violate I/O safety : défaut de typage, pas de déclencheur depuis une page
 libsqlite3-sys CVE-2026-119375  # faille du SQLite embarqué (feature bundled, inutilisée : Gecko lie son SQLite de third_party) ; SQLite < 3.54 lit une page non initialisée si un -wal piégé est posé à côté de la base : demande un accès local au profil, à corriger par Mozilla
+quinn-udp GHSA-6pp4-4cxf-xf88  # RUSTSEC-2026-0538, boucle de réception sur un datagramme tronqué : seulement le chemin recvmsg (macOS sans fast-apple-datapath, BSD) ; neqo-udp active fast-apple-datapath et lit dans des tampons de 65 535 octets, un datagramme UDP ne peut donc pas y être tronqué. Corrigé en 0.6.3
+rustix GHSA-jh2m-fhpj-3vr7  # RUSTSEC-2026-0486 (unsound), fonctions xattr (getxattr, listxattr...) : jamais appelées dans Gecko (neqo_glue n'utilise que fcntl et des options de socket, tempfile ne lit pas d'xattr). Corrigé en 1.1.6
 
-# Gecko 153.6.0esr, crates d'outils (geckodriver, crashreporter, nimbus-fml), absentes de Core.
+# Gecko 153.7.0esr, crates d'outils (geckodriver, crashreporter, nimbus-fml), absentes de Core.
 quick-xml RUSTSEC-2026-0194  # Quadratic run time when checking a start tag for duplicate attribute n
 quick-xml RUSTSEC-2026-0195  # Unbounded namespace-declaration allocation in `NsReader` enables memor
 unsafe-libyaml RUSTSEC-2024-0449  # unsafe-libyaml is unmaintained
@@ -33,7 +35,7 @@ zip CVE-2026-115906  # zip: AES Entry HMAC Authentication Bypass on Premature EO
 zip CVE-2026-115909  # zip: `ZipArchive::extract` aborts the process on a symlink entry with a large declared size
 basic-toml RUSTSEC-2026-0374  # `basic-toml` is unmaintained : via askama, générateur de code uniffi au build
 
-# Gecko 153.6.0esr, environnement Python de mach : sert au build, pas au navigateur.
+# Gecko 153.7.0esr, environnement Python de mach : sert au build, pas au navigateur.
 aiohttp CVE-2026-22815  # aiohttp allows unlimited trailer headers, leading to possible uncapped
 aiohttp CVE-2026-34513  # AIOHTTP Affected by Denial of Service (DoS) via Unbounded DNS Cache in
 aiohttp CVE-2026-34514  # AIOHTTP has CRLF injection through multipart part content type header
@@ -103,7 +105,7 @@ aiohttp GHSA-2g87-pp6c-29x5  # AIOHTTP: Pure-Python parser request smuggling
 certifi GHSA-6q48-6c7w-9gw2  # certifi bundles emSign root CAs with compromised intermediate CA keys ; Core utilise les racines de NSS
 setuptools GHSA-xmj3-9gf7-h52w  # setuptools: Windows path escape via namespace_packages.txt during legacy
 
-# Gecko 153.6.0esr, bibliothèques C/C++ : correspondance par commit d'origine
+# Gecko 153.7.0esr, bibliothèques C/C++ : correspondance par commit d'origine
 # sur osv.dev. Mozilla corrige souvent ses copies sans changer ce commit, ces
 # lignes sont donc à vérifier une par une avant d'en conclure quoi que ce soit.
 
@@ -172,31 +174,16 @@ third_party/llama.cpp CVE-2026-116467
 third_party/llama.cpp CVE-2026-116816
 third_party/llama.cpp CVE-2026-119052
 
-# Expat : à vérifier en priorité, le parseur XML est exposé au web.
+# Expat : à vérifier en priorité, le parseur XML est exposé au web. La 153.7
+# passe à libexpat 2.8.5, qui corrige les 18 autres failles listées jusque-là ;
+# 102633 et 77214 sont corrigées dans 2.9.0, que Gecko n'a pas encore.
 parser/expat CVE-2026-102633
 parser/expat CVE-2026-113351  # libexpat 2.7.2 through 2.9.0 Denial of Service via XML_ParserReset
 parser/expat CVE-2026-115506  # libexpat through 2.9.0 Denial of Service via Billion Laughs Detection Delay
 parser/expat CVE-2026-118370  # libexpat through 2.9.0 Integer Overflow in storeAtts via attIndex and nPrefixes
 parser/expat CVE-2026-124317
-parser/expat CVE-2026-50219
-parser/expat CVE-2026-56131
-parser/expat CVE-2026-56132
-parser/expat CVE-2026-56403
-parser/expat CVE-2026-56404
-parser/expat CVE-2026-56405
-parser/expat CVE-2026-56406
-parser/expat CVE-2026-56407
-parser/expat CVE-2026-56408
-parser/expat CVE-2026-56409
-parser/expat CVE-2026-56410
-parser/expat CVE-2026-56411
-parser/expat CVE-2026-56412
-parser/expat CVE-2026-66046
-parser/expat CVE-2026-72522
-parser/expat CVE-2026-76641
-parser/expat CVE-2026-76957
 parser/expat CVE-2026-77214
-parser/expat CVE-2026-93990
+parser/expat CVE-2026-128241  # pas encore corrigée dans libexpat (absente de ses Changes jusqu'à 2.9.0), en attente de Mozilla
 
 # Autres bibliothèques compilées dans le navigateur.
 extensions/spellcheck/hunspell OSV-2022-882

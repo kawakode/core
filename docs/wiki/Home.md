@@ -22,7 +22,7 @@ Fission, processus séparés).
 
 ## Version actuelle
 
-- Gecko **ESR 153.6.0** (`FIREFOX_153_6_0esr_RELEASE`, fichier `GECKO_TAG`).
+- Gecko **ESR 153.7.0** (`FIREFOX_153_7_0esr_RELEASE`, fichier `GECKO_TAG`).
 - Linux : se construit et tourne. Windows : se construit (compilation croisée
   depuis Linux, zip portable sans installeur). macOS : se construit
   (compilation croisée depuis Linux, `.dmg` signé ad hoc), pas encore testé
